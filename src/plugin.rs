@@ -1,0 +1,243 @@
+use std::{
+    path::PathBuf,
+    sync::{atomic::AtomicUsize, Arc, Mutex},
+};
+
+use ringbuf::{traits::*, HeapCons, HeapProd, HeapRb};
+
+use crate::{
+    audio_bus::{AudioBus, IOConfigutaion},
+    discovery::PluginDescriptor,
+    error::{err, Error},
+    event::{HostIssuedEvent, PluginIssuedEvent},
+    host::Host,
+    parameter::Parameter,
+    BlockSize, ProcessDetails, SampleRate, Samples,
+};
+
+pub fn load(path: &PathBuf, host: &Host) -> Result<PluginInstance, Error> {
+    let plugin_issued_events: HeapRb<PluginIssuedEvent> = HeapRb::new(512);
+    let (plugin_issued_events_producer, plugin_issued_events_consumer) =
+        plugin_issued_events.split();
+
+    let common = crate::formats::Common {
+        host: host.clone(),
+        plugin_issued_events_producer,
+    };
+
+    let (inner, descriptor) = crate::formats::load_any(path, common)?;
+
+    let io_configuration = inner.get_io_configuration();
+
+    Ok(PluginInstance {
+        latency: AtomicUsize::new(descriptor.initial_latency),
+        descriptor,
+        inner,
+        host_issued_events: HeapRb::new(512),
+        plugin_issued_events: plugin_issued_events_consumer,
+        sample_rate: 0,
+        block_size: 0,
+        showing_editor: false,
+        host: host.clone(),
+        io_configuration,
+        resumed: false,
+    })
+}
+
+pub struct PluginInstance {
+    pub descriptor: PluginDescriptor,
+    pub inner: Box<dyn PluginInner>,
+    pub host_issued_events: HeapRb<HostIssuedEvent>,
+    pub plugin_issued_events: HeapCons<PluginIssuedEvent>,
+    pub sample_rate: SampleRate,
+    pub block_size: BlockSize,
+    host: Host,
+    showing_editor: bool,
+    latency: AtomicUsize,
+    io_configuration: IOConfigutaion,
+    resumed: bool,
+}
+
+unsafe impl Send for PluginInstance {}
+unsafe impl Sync for PluginInstance {}
+
+impl PluginInstance {
+    /// {Audio thread} Process function. Nuff said.
+    pub fn process(
+        &mut self,
+        inputs: &Vec<AudioBus<f32>>,
+        outputs: &mut Vec<AudioBus<f32>>,
+        mut events: Vec<HostIssuedEvent>,
+        process_details: &ProcessDetails,
+    ) {
+        self.resume();
+
+        self.fix_configuration(process_details);
+
+        while let Some(event) = self.host_issued_events.try_pop() {
+            events.push(event);
+        }
+
+        self.inner.process(inputs, outputs, events, process_details);
+    }
+
+    /// {UI thread} Must be called routinely to process the plugin's UI events. Some formats like
+    /// VST3 require plugins to be synced by the host which happens in this function.
+    pub fn editor_updates(&mut self) {}
+
+    /// {UI Thread} Consume `PluginIssuedEvent`s queued by the plugin. Informs the host
+    /// of parameter changes in the editor, latency changes, etc.
+    pub fn get_events(&mut self) -> Vec<PluginIssuedEvent> {
+        let mut events = Vec::new();
+        while let Some(event) = self.plugin_issued_events.try_pop() {
+            events.extend(self.handle_plugin_event(&event));
+
+            events.push(event);
+        }
+        events
+    }
+
+    /// {Any thread}
+    pub fn queue_event(&mut self, event: HostIssuedEvent) {
+        let _ = self.host_issued_events.try_push(event);
+    }
+
+    /// {Any thread}
+    pub fn get_latency(&self) -> usize {
+        self.latency.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// {UI thread}
+    pub fn get_io_configuration(&self) -> IOConfigutaion {
+        self.inner.get_io_configuration()
+    }
+
+    pub fn resume(&mut self) {
+        if self.resumed {
+            return;
+        }
+
+        self.inner.resume();
+        self.resumed = true;
+    }
+
+    pub fn suspend(&mut self) {
+        if !self.resumed {
+            return;
+        }
+        self.inner.suspend();
+
+        self.resumed = false;
+    }
+
+    pub fn get_descriptor(&self) -> PluginDescriptor {
+        self.descriptor.clone()
+    }
+
+    pub fn get_preset_data(&mut self) -> Result<Vec<u8>, String> {
+        self.inner.get_preset_data()
+    }
+
+    pub fn set_preset_data(&mut self, data: Vec<u8>) -> Result<(), String> {
+        self.inner.set_preset_data(data)
+    }
+
+    pub fn get_preset_name(&mut self, id: i32) -> Result<String, String> {
+        self.inner.get_preset_name(id)
+    }
+
+    pub fn set_preset(&mut self, id: i32) -> Result<(), String> {
+        self.inner.set_preset(id)
+    }
+
+    pub fn get_parameter(&self, id: i32) -> Parameter {
+        self.inner.get_parameter(id)
+    }
+
+    pub fn show_editor(
+        &mut self,
+        window_id: *mut std::ffi::c_void,
+    ) -> Result<(usize, usize), Error> {
+        if self.showing_editor {
+            return err("Editor is already open");
+        }
+
+        let size = self.inner.show_editor(window_id)?;
+
+        self.showing_editor = true;
+
+        Ok(size)
+    }
+
+    pub fn hide_editor(&mut self) {
+        if !self.showing_editor {
+            return;
+        }
+
+        self.inner.hide_editor();
+
+        self.showing_editor = false;
+    }
+
+    fn fix_configuration(&mut self, process_details: &ProcessDetails) {
+        if self.sample_rate != process_details.sample_rate {
+            self.sample_rate = process_details.sample_rate;
+            self.inner.change_sample_rate(process_details.sample_rate);
+        }
+
+        if self.block_size != process_details.block_size {
+            self.block_size = process_details.block_size;
+            self.inner.change_block_size(process_details.block_size);
+        }
+    }
+
+    /// Returns any new events
+    fn handle_plugin_event(&mut self, event: &PluginIssuedEvent) -> Vec<PluginIssuedEvent> {
+        match event {
+            PluginIssuedEvent::IOChanged => {
+                self.io_configuration = self.inner.get_io_configuration();
+
+                let latency = self.inner.get_latency();
+
+                self.latency.store(
+                    latency,
+                    std::sync::atomic::Ordering::Relaxed,
+                );
+
+                vec![PluginIssuedEvent::ChangeLatency(latency)]
+            }
+            _ => {
+                vec![]
+            }
+        }
+    }
+}
+
+pub trait PluginInner {
+    fn process(
+        &mut self,
+        inputs: &Vec<AudioBus<f32>>,
+        outputs: &mut Vec<AudioBus<f32>>,
+        events: Vec<HostIssuedEvent>,
+        process_details: &ProcessDetails,
+    );
+
+    fn set_preset_data(&mut self, data: Vec<u8>) -> Result<(), String>;
+    fn get_preset_data(&mut self) -> Result<Vec<u8>, String>;
+    fn get_preset_name(&mut self, id: i32) -> Result<String, String>;
+    fn set_preset(&mut self, id: i32) -> Result<(), String>;
+
+    fn get_parameter(&self, id: i32) -> Parameter;
+
+    fn show_editor(&mut self, window_id: *mut std::ffi::c_void) -> Result<(usize, usize), Error>;
+    fn hide_editor(&mut self);
+
+    fn change_sample_rate(&mut self, rate: SampleRate);
+    fn change_block_size(&mut self, size: BlockSize);
+    fn suspend(&mut self);
+    fn resume(&mut self);
+
+    fn get_io_configuration(&self) -> IOConfigutaion;
+
+    fn get_latency(&mut self) -> Samples;
+}

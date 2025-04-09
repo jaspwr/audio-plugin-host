@@ -1,0 +1,9 @@
+[package]
+name = "audio-plugin-host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+goblin = "0.9.3"
+ringbuf = "0.4.8"
+vst = { path = "vendor/vst-rs", features = ["disable_deprecation_warning"] }
