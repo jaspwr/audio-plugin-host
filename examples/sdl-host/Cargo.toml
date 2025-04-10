@@ -1,0 +1,9 @@
+[package]
+name = "sdl-host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+audio-plugin-host = { path = "../.." }
+sdl2 = "0.36.0"
+winapi = { version = "0.3.9", features = ["windef"] }
