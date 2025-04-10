@@ -1,9 +1,39 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10)
 
 project(vst3wrapper)
 
-include(cmake/get_cpm.cmake)
-include(cmake/Dependencies.cmake)
+set(VST_SOURCE_DIR "C:/Users/jaspe/Downloads/VST_SDK")
+
+add_library(VST_SDK
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/hosting/connectionproxy.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/hosting/eventlist.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/hosting/hostclasses.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/hosting/module.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/hosting/module_win32.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/hosting/parameterchanges.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/hosting/pluginterfacesupport.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/hosting/plugprovider.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/hosting/processdata.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/utility/stringconvert.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/vstinitiids.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/common/threadchecker_win32.cpp
+
+    ${VST_SOURCE_DIR}/vst3sdk/pluginterfaces/base/conststringtable.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/pluginterfaces/base/coreiids.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/pluginterfaces/base/funknown.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/base/source/fobject.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/base/source/fdebug.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/base/source/updatehandler.cpp
+    ${VST_SOURCE_DIR}/vst3sdk/base/thread/source/flock.cpp
+)
+
+target_include_directories(VST_SDK
+    PUBLIC "${VST_SOURCE_DIR}/vst3sdk/"
+)
+target_compile_definitions(VST_SDK
+    PUBLIC
+        "-DRELEASE"
+)
 
 set(vst3wrapper_sources
     # ${SDK_ROOT}/public.sdk/source/vst/hosting/plugprovider.cpp
@@ -20,10 +50,10 @@ target_compile_features(${target}
         cxx_std_17
 )
 
-target_compile_features(vst3wrapper
-    PUBLIC
-        cxx_std_17
-)
+# target_compile_features(vst3wrapper
+#     PUBLIC
+#         cxx_std_17
+# )
 
 target_compile_definitions(vst3wrapper
     PUBLIC
@@ -33,10 +63,6 @@ target_compile_definitions(vst3wrapper
 target_link_libraries(vst3wrapper
     PRIVATE
         VST_SDK
-        SDL2-static
-        portaudio
-        RtMidi
-        concurrentqueue
 )
 
 target_include_directories(vst3wrapper
