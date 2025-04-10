@@ -541,9 +541,12 @@ pub trait Dispatch {
     /// Send a dispatch message to the plugin.
     fn dispatch(&self, opcode: plugin::OpCode, index: i32, value: isize, ptr: *mut c_void, opt: f32) -> isize {
         let dispatcher = unsafe { (*self.get_effect()).dispatcher };
+
+        #[allow(useless_ptr_null_checks)]
         if (dispatcher as *mut u8).is_null() {
             panic!("Plugin was not loaded correctly.");
         }
+
         dispatcher(self.get_effect(), opcode.into(), index, value, ptr, opt)
     }
 

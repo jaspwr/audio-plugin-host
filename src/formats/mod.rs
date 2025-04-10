@@ -3,7 +3,6 @@ mod vst2;
 mod vst3;
 
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 
 use ringbuf::HeapProd;
 

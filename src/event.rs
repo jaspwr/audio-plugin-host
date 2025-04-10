@@ -1,7 +1,5 @@
 use crate::{parameter::ParameterUpdate, PpqTime, Samples};
 
-use ringbuf::{storage::Storage, traits::*};
-
 /// Events sent to the plugin from the host. Can be passed into the `process` function or queued
 /// for the next process call with `queue_event`.
 #[derive(Debug, Clone)]

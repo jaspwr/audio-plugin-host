@@ -1,5 +1,3 @@
-use crate::event::PluginIssuedEvent;
-
 #[derive(Debug)]
 pub struct Parameter {
     pub id: i32,

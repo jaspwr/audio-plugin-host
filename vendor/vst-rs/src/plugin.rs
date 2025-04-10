@@ -976,11 +976,17 @@ impl Host for HostCallback {
     }
 
     fn get_process_level(&self) -> i32 {
-        self.callback(self.effect, host::OpCode::GetCurrentProcessLevel, 0, 0, ptr::null_mut(), 0.0) as i32
+        self.callback(
+            self.effect,
+            host::OpCode::GetCurrentProcessLevel,
+            0,
+            0,
+            ptr::null_mut(),
+            0.0,
+        ) as i32
     }
 
-    fn set_size(&self, width: i32, height: i32) {
-    }
+    fn set_size(&self, _width: i32, _height: i32) {}
 }
 
 #[cfg(test)]

@@ -533,6 +533,8 @@ impl vst::host::Host for Vst2Host {
     }
 
     fn get_language(&self) -> i32 {
+        #[allow(clippy::match_like_matches_macro)]
+        #[allow(unreachable_patterns)]
         match self.host.language.unwrap_or_default() {
             Language::English => HostLanguage::English as i32,
             Language::Spanish => HostLanguage::Spanish as i32,

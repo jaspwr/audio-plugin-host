@@ -4,6 +4,6 @@ use crate::error::Error;
 use crate::plugin::PluginInner;
 use crate::discovery::PluginDescriptor;
 
-pub fn load(path: &PathBuf) -> Result<(Box<dyn PluginInner>, PluginDescriptor), Error> {
+pub fn load(_path: &PathBuf) -> Result<(Box<dyn PluginInner>, PluginDescriptor), Error> {
     todo!()
 }

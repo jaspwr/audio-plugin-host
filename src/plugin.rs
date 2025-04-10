@@ -1,9 +1,6 @@
-use std::{
-    path::PathBuf,
-    sync::{atomic::AtomicUsize, Arc, Mutex},
-};
+use std::{path::PathBuf, sync::atomic::AtomicUsize};
 
-use ringbuf::{traits::*, HeapCons, HeapProd, HeapRb};
+use ringbuf::{traits::*, HeapCons, HeapRb};
 
 use crate::{
     audio_bus::{AudioBus, IOConfigutaion},
@@ -33,12 +30,10 @@ pub fn load(path: &PathBuf, host: &Host) -> Result<PluginInstance, Error> {
         latency: AtomicUsize::new(descriptor.initial_latency),
         descriptor,
         inner,
-        host_issued_events: HeapRb::new(512),
         plugin_issued_events: plugin_issued_events_consumer,
         sample_rate: 0,
         block_size: 0,
         showing_editor: false,
-        host: host.clone(),
         io_configuration,
         resumed: false,
     })
@@ -47,11 +42,9 @@ pub fn load(path: &PathBuf, host: &Host) -> Result<PluginInstance, Error> {
 pub struct PluginInstance {
     pub descriptor: PluginDescriptor,
     pub inner: Box<dyn PluginInner>,
-    pub host_issued_events: HeapRb<HostIssuedEvent>,
     pub plugin_issued_events: HeapCons<PluginIssuedEvent>,
     pub sample_rate: SampleRate,
     pub block_size: BlockSize,
-    host: Host,
     showing_editor: bool,
     latency: AtomicUsize,
     io_configuration: IOConfigutaion,
@@ -67,16 +60,12 @@ impl PluginInstance {
         &mut self,
         inputs: &Vec<AudioBus<f32>>,
         outputs: &mut Vec<AudioBus<f32>>,
-        mut events: Vec<HostIssuedEvent>,
+        events: Vec<HostIssuedEvent>,
         process_details: &ProcessDetails,
     ) {
         self.resume();
 
         self.fix_configuration(process_details);
-
-        while let Some(event) = self.host_issued_events.try_pop() {
-            events.push(event);
-        }
 
         self.inner.process(inputs, outputs, events, process_details);
     }
@@ -95,11 +84,6 @@ impl PluginInstance {
             events.push(event);
         }
         events
-    }
-
-    /// {Any thread}
-    pub fn queue_event(&mut self, event: HostIssuedEvent) {
-        let _ = self.host_issued_events.try_push(event);
     }
 
     /// {Any thread}
@@ -199,10 +183,8 @@ impl PluginInstance {
 
                 let latency = self.inner.get_latency();
 
-                self.latency.store(
-                    latency,
-                    std::sync::atomic::Ordering::Relaxed,
-                );
+                self.latency
+                    .store(latency, std::sync::atomic::Ordering::Relaxed);
 
                 vec![PluginIssuedEvent::ChangeLatency(latency)]
             }
