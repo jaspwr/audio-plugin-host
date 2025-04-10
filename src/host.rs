@@ -11,7 +11,11 @@ pub struct Host {
 #[macro_export]
 macro_rules! new_host {
     () => {
-        Host::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_AUTHORS"))
+        Host::new(
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+            env!("CARGO_PKG_AUTHORS"),
+        )
     };
 }
 

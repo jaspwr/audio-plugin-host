@@ -1,10 +1,10 @@
-pub mod plugin;
-pub mod event;
-pub mod host;
 pub mod audio_bus;
-pub mod parameter;
 pub mod discovery;
 pub mod error;
+pub mod event;
+pub mod host;
+pub mod parameter;
+pub mod plugin;
 
 mod formats;
 

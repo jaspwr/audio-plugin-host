@@ -7,3 +7,6 @@ edition = "2021"
 goblin = "0.9.3"
 ringbuf = "0.4.8"
 vst = { path = "vendor/vst-rs", features = ["disable_deprecation_warning"] }
+
+[build-dependencies]
+cmake = "0.1"

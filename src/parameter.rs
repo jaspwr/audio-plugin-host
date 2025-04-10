@@ -12,7 +12,7 @@ pub struct ParameterUpdate {
     pub parameter_id: i32,
     pub current_value: f32,
     /// Value at start of edit. For example, the value before the user started dragging a knob
-    /// in the plugin editor. Not required to be set when sending events to the plugin; just 
+    /// in the plugin editor. Not required to be set when sending events to the plugin; just
     /// used for implementing undo/redo in the host.
     pub inital_value: Option<f32>,
     /// If `Some`, this is a parameter update triggered by a user action in the plugin editor. If

@@ -28,7 +28,7 @@ pub fn load_any(
         return clap::load(path);
     }
 
-    return err("The requested path was not a supported plugin format.");
+    err("The requested path was not a supported plugin format.")
 }
 
 /// Common data shared between all plugin formats.

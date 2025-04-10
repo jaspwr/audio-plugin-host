@@ -39,7 +39,9 @@ fn main() {
     loop {
         let mut event_pump = sdl.event_pump().unwrap();
         for event in event_pump.poll_iter() {
-            if let sdl2::event::Event::Quit { .. } = event { return }
+            if let sdl2::event::Event::Quit { .. } = event {
+                return;
+            }
         }
 
         let events = plugin.lock().unwrap().get_events();
@@ -52,11 +54,11 @@ fn main() {
             match event {
                 PluginIssuedEvent::ResizeWindow(width, height) => {
                     window.set_size(width as u32, height as u32).unwrap();
-                },
+                }
                 PluginIssuedEvent::Parameter(param) => {
                     let param = plugin.lock().unwrap().get_parameter(param.parameter_id);
                     println!("Parameter updated {:?}", param);
-                },
+                }
                 _ => {}
             }
         }
@@ -72,9 +74,17 @@ impl AudioCallback for SDLAudioDeviceCallback {
         // This does not support all IO configurations and is not real-time safe. This is just
         // for demonstration purposes.
         let channel_setup = self.plugin.lock().unwrap().get_io_configuration();
-        let input_channels = channel_setup.audio_inputs.iter().map(|bus| bus.channels).sum::<usize>();
+        let input_channels = channel_setup
+            .audio_inputs
+            .iter()
+            .map(|bus| bus.channels)
+            .sum::<usize>();
         let mut input = vec![vec![0.0; self.block_size]; input_channels];
-        let output_channels = channel_setup.audio_outputs.iter().map(|bus| bus.channels).sum::<usize>();
+        let output_channels = channel_setup
+            .audio_outputs
+            .iter()
+            .map(|bus| bus.channels)
+            .sum::<usize>();
         let mut output = vec![vec![0.0; self.block_size]; output_channels];
         let mut input_busses = vec![AudioBus::new(0, &mut input)];
         let mut output_busses = vec![AudioBus::new(0, &mut output)];
@@ -146,7 +156,9 @@ fn get_window_id(window: &sdl2::video::Window) -> *mut std::ffi::c_void {
     unsafe { sdl2::sys::SDL_GetWindowWMInfo(window.raw(), &mut wm_info) };
 
     unsafe {
-        let win = std::mem::transmute::<_, *mut Win>(&wm_info.info as *const _);
+        let win = std::mem::transmute::<_, *mut Win>(
+            &wm_info.info as *const _,
+        );
         (*win).hwnd as *mut std::ffi::c_void
     }
 }
@@ -154,7 +166,6 @@ fn get_window_id(window: &sdl2::video::Window) -> *mut std::ffi::c_void {
 const CHANNELS: u8 = 2;
 const BLOCK_SIZE: usize = 512;
 const SAMPLE_RATE: u32 = 44100;
-
 
 pub struct SDLAudioDeviceCallback {
     pub block_size: BlockSize,

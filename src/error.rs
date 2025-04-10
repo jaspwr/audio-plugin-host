@@ -1,7 +1,9 @@
 use std::fmt::Display;
 
 pub fn err<T>(message: impl ToString) -> Result<T, Error> {
-    Err(Error { message: message.to_string() })
+    Err(Error {
+        message: message.to_string(),
+    })
 }
 
 #[derive(Debug, Clone)]

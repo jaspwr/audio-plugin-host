@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::Samples;
 
@@ -23,7 +23,7 @@ pub fn scan_directory(_path: PathBuf) -> Vec<PluginDescriptor> {
     todo!();
 }
 
-pub fn is_vst2(path: &std::path::PathBuf, check_contents: bool) -> bool {
+pub fn is_vst2(path: &Path, check_contents: bool) -> bool {
     if !path.exists() {
         return false;
     }
@@ -50,12 +50,12 @@ pub fn is_vst2(path: &std::path::PathBuf, check_contents: bool) -> bool {
     }
 }
 
-pub fn is_vst3(path: &std::path::PathBuf) -> bool {
+pub fn is_vst3(path: &Path) -> bool {
     let path = path.to_string_lossy().to_lowercase();
     path.ends_with(".vst3")
 }
 
-pub fn is_clap(path: &std::path::PathBuf) -> bool {
+pub fn is_clap(path: &Path) -> bool {
     let path = path.to_string_lossy().to_lowercase();
     path.ends_with(".clap")
 }

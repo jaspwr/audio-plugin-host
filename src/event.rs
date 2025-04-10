@@ -32,4 +32,3 @@ pub enum PluginIssuedEvent {
     UpdateDisplay,
     IOChanged,
 }
-

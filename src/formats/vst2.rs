@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::i8;
-use std::{path::PathBuf, sync::Mutex};
+use std::path::Path;
+use std::sync::Mutex;
 
 use crate::audio_bus::{AudioBus, AudioBusDescriptor, IOConfigutaion};
 use crate::discovery::PluginDescriptor;
@@ -29,7 +30,7 @@ use vst::{
 use super::Common;
 
 pub fn load(
-    path: &PathBuf,
+    path: &Path,
     common: Common,
 ) -> Result<(Box<dyn PluginInner>, PluginDescriptor), Error> {
     let details = Arc::new(std::sync::Mutex::new(ProcessDetails::default()));
@@ -63,7 +64,7 @@ pub fn load(
     let descriptor = PluginDescriptor {
         name: info.name,
         id: info.unique_id.to_string(),
-        path: path.clone(),
+        path: path.to_path_buf(),
         version: info.version.to_string(),
         vendor: info.vendor,
         format: Format::Vst2,
@@ -249,10 +250,10 @@ impl PluginInner for Vst2 {
         let mut input = &vec![];
         let mut output = &mut vec![];
 
-        if inputs.len() > 0 {
-            input = &inputs[0].data;
+        if !inputs.is_empty() {
+            input = inputs[0].data;
         }
-        if outputs.len() > 0 {
+        if !outputs.is_empty() {
             output = &mut outputs[0].data;
         }
 
@@ -274,10 +275,10 @@ impl PluginInner for Vst2 {
             return Err("Plugin does not support preset data".to_string());
         }
 
-        Ok(self
-            .plugin_instance
+        self.plugin_instance
             .get_parameter_object()
-            .load_preset_data(data.as_slice()))
+            .load_preset_data(data.as_slice());
+        Ok(())
     }
 
     fn get_preset_data(&mut self) -> Result<Vec<u8>, String> {
@@ -299,10 +300,10 @@ impl PluginInner for Vst2 {
     }
 
     fn set_preset(&mut self, id: i32) -> Result<(), String> {
-        Ok(self
-            .plugin_instance
+        self.plugin_instance
             .get_parameter_object()
-            .change_preset(id))
+            .change_preset(id);
+        Ok(())
     }
 
     // fn list_params(&self) -> Vec<String> {
@@ -605,7 +606,7 @@ fn process_vst2_midi_events_list(
 }
 
 fn midi_event_to_vst2_event(midi_event: &HostIssuedEvent) -> Option<*mut Event> {
-    let frame = midi_event.block_time as usize;
+    let frame = midi_event.block_time;
 
     let HostIssuedEventType::Midi {
         midi_data,
