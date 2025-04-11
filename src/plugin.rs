@@ -57,7 +57,7 @@ unsafe impl Send for PluginInstance {}
 unsafe impl Sync for PluginInstance {}
 
 impl PluginInstance {
-    /// {Audio thread} Process function. Nuff said.
+    /// {Audio thread}
     pub fn process(
         &mut self,
         inputs: &Vec<AudioBus<f32>>,

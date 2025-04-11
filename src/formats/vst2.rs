@@ -320,7 +320,6 @@ impl PluginInner for Vst2 {
     fn get_latency(&mut self) -> usize {
         self.plugin_instance.initial_delay() as usize
     }
-
 }
 
 #[allow(dead_code)]

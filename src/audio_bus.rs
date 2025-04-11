@@ -1,15 +1,13 @@
 use crate::heapless_vec::HeaplessVec;
 
 pub struct AudioBus<'a, T> {
-    pub index: usize,
     pub data: &'a mut Vec<Vec<T>>,
     owned_data: *mut Vec<Vec<T>>,
 }
 
 impl<'a, T> AudioBus<'a, T> {
-    pub fn new(index: usize, data: &'a mut Vec<Vec<T>>) -> Self {
+    pub fn new(data: &'a mut Vec<Vec<T>>) -> Self {
         AudioBus {
-            index,
             data,
             owned_data: std::ptr::null_mut(),
         }
@@ -62,11 +60,10 @@ impl<T> AudioBus<'_, T>
 where
     T: Default + Clone,
 {
-    pub fn new_alloced(index: usize, block_size: usize, channels: usize) -> Self {
+    pub fn new_alloced(block_size: usize, channels: usize) -> Self {
         let buffer = vec![vec![T::default(); block_size]; channels];
         let ptr = Box::into_raw(Box::new(buffer));
         AudioBus {
-            index,
             data: unsafe { &mut *ptr },
             owned_data: ptr,
         }

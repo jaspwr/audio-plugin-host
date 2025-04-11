@@ -78,14 +78,12 @@ impl AudioCallback for SDLAudioDeviceCallback {
         let mut output_buses = vec![];
         for bus in io.audio_inputs.iter() {
             input_buses.push(AudioBus::new_alloced(
-                0,
                 self.block_size as usize,
                 bus.channels,
             ));
         }
         for bus in io.audio_outputs.iter() {
             output_buses.push(AudioBus::new_alloced(
-                0,
                 self.block_size as usize,
                 bus.channels,
             ));
