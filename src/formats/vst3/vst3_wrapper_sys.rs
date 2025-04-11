@@ -4,10 +4,13 @@ use std::{
 };
 
 use ringbuf::{traits::Producer, HeapProd};
-use vst::api::MidiEvent;
 
 use crate::{
-    audio_bus::IOConfigutaion, event::{HostIssuedEvent, HostIssuedEventType, PluginIssuedEvent}, formats::{Format, PluginDescriptor}, parameter::{Parameter, ParameterUpdate}, ProcessDetails
+    audio_bus::IOConfigutaion,
+    event::{HostIssuedEvent, PluginIssuedEvent},
+    formats::{Format, PluginDescriptor},
+    parameter::Parameter,
+    ProcessDetails,
 };
 
 #[link(name = "vst3wrapper", kind = "static")]
@@ -38,10 +41,7 @@ extern "C" {
     ) -> *const c_void;
     pub(super) fn free_data_stream(stream: *const c_void);
     pub(super) fn set_data(app: *const c_void, data: *const c_void, data_len: i32);
-    pub(super) fn set_processing(
-        app: *const c_void,
-        processing: bool,
-    );
+    pub(super) fn set_processing(app: *const c_void, processing: bool);
 
     fn free_string(str: *const c_char);
 }
@@ -52,7 +52,8 @@ pub extern "C" fn send_event_to_host(
     plugin_sent_events_producer: *const c_void,
 ) {
     let event = unsafe { &*event };
-    let producer = unsafe { &mut *(plugin_sent_events_producer as *mut HeapProd<PluginIssuedEvent>) };
+    let producer =
+        unsafe { &mut *(plugin_sent_events_producer as *mut HeapProd<PluginIssuedEvent>) };
     let _ = producer.try_push(event.clone());
 }
 
@@ -88,25 +89,6 @@ pub(super) struct Dims {
     pub width: std::os::raw::c_int,
     pub height: std::os::raw::c_int,
 }
-
-#[repr(C)]
-#[allow(non_snake_case)]
-#[derive(Debug, Copy, Clone)]
-pub struct ParameterChange {
-    id: std::os::raw::c_int,
-    value: std::os::raw::c_float,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-#[derive(Debug, Copy, Clone)]
-struct ParameterEditState {
-    id: std::os::raw::c_int,
-    initial_value: std::os::raw::c_float,
-    current_value: std::os::raw::c_float,
-    finished: bool,
-}
-
 
 #[repr(C)]
 #[allow(non_snake_case)]

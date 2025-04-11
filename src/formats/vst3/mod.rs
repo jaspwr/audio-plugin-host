@@ -3,28 +3,25 @@ use std::ffi::c_void;
 use std::path::Path;
 
 use ringbuf::traits::{Consumer, Producer};
-use ringbuf::{HeapProd, HeapRb, SharedRb};
+use ringbuf::{HeapProd, HeapRb};
 use vst3_wrapper_sys::{descriptor, get_parameter, set_param_in_edit_controller};
 
+use crate::audio_bus::AudioBus;
 use crate::discovery::PluginDescriptor;
 use crate::error::Error;
 use crate::event::HostIssuedEventType;
-use crate::heapless_vec::HeaplessVec;
+use crate::event::{HostIssuedEvent, PluginIssuedEvent};
 use crate::parameter::ParameterUpdate;
 use crate::plugin::PluginInner;
-use crate::{
-    audio_bus::IOConfigutaion,
-    event::{HostIssuedEvent, PluginIssuedEvent},
-};
 use crate::{ProcessDetails, Samples};
 
-use super::{Common, Format};
+use super::Common;
 
 mod vst3_wrapper_sys;
 
 struct Vst3 {
     app: *const c_void,
-    plugin_issued_events_producer: Box<HeapProd<PluginIssuedEvent>>,
+    _plugin_issued_events_producer: Box<HeapProd<PluginIssuedEvent>>,
     param_updates_for_edit_controller: HeapRb<ParameterUpdate>,
 }
 
@@ -45,7 +42,7 @@ pub fn load(
     let descriptor = unsafe { descriptor(app) }.to_plugin_descriptor(path);
     let processor = Vst3 {
         app,
-        plugin_issued_events_producer,
+        _plugin_issued_events_producer: plugin_issued_events_producer,
         param_updates_for_edit_controller: HeapRb::new(512),
     };
 
@@ -55,8 +52,8 @@ pub fn load(
 impl PluginInner for Vst3 {
     fn process(
         &mut self,
-        inputs: &Vec<crate::audio_bus::AudioBus<f32>>,
-        outputs: &mut Vec<crate::audio_bus::AudioBus<f32>>,
+        inputs: &[AudioBus<f32>],
+        outputs: &mut [AudioBus<f32>],
         mut events: Vec<HostIssuedEvent>,
         process_details: &ProcessDetails,
     ) {
@@ -70,19 +67,19 @@ impl PluginInner for Vst3 {
         let mut input_ptrs: Vec<*mut *mut f32> = Vec::with_capacity(inputs.len());
         let mut output_ptrs: Vec<*mut *mut f32> = Vec::with_capacity(outputs.len());
 
-        for bus_idx in 0..inputs.len() {
+        for bus in inputs.iter() {
             let mut channels = vec![];
-            for channel_idx in 0..inputs[bus_idx].data.len() {
-                channels.push(inputs[bus_idx].data[channel_idx].as_ptr() as *mut f32);
+            for channel_idx in 0..bus.data.len() {
+                channels.push(bus.data[channel_idx].as_ptr() as *mut f32);
             }
             channel_buffers.push(channels);
             input_ptrs.push(channel_buffers.last_mut().unwrap().as_mut_ptr());
         }
 
-        for bus_idx in 0..outputs.len() {
+        for bus in outputs.iter_mut() {
             let mut channels = vec![];
-            for channel_idx in 0..outputs[bus_idx].data.len() {
-                channels.push(outputs[bus_idx].data[channel_idx].as_mut_ptr() as *mut f32);
+            for channel_idx in 0..bus.data.len() {
+                channels.push(bus.data[channel_idx].as_mut_ptr());
             }
             channel_buffers.push(channels);
             output_ptrs.push(channel_buffers.last_mut().unwrap().as_mut_ptr());
@@ -92,8 +89,8 @@ impl PluginInner for Vst3 {
             vst3_wrapper_sys::process(
                 self.app,
                 process_details as *const ProcessDetails,
-                input_ptrs.as_mut_ptr() as *mut *mut *mut f32,
-                output_ptrs.as_mut_ptr() as *mut *mut *mut f32,
+                input_ptrs.as_mut_ptr(),
+                output_ptrs.as_mut_ptr(),
                 events.as_mut_ptr(),
                 events.len() as i32,
             );
@@ -132,11 +129,11 @@ impl PluginInner for Vst3 {
         }
     }
 
-    fn get_preset_name(&mut self, id: i32) -> Result<String, String> {
+    fn get_preset_name(&mut self, _id: i32) -> Result<String, String> {
         todo!()
     }
 
-    fn set_preset(&mut self, id: i32) -> Result<(), String> {
+    fn set_preset(&mut self, _id: i32) -> Result<(), String> {
         todo!()
     }
 
@@ -147,7 +144,7 @@ impl PluginInner for Vst3 {
     fn show_editor(&mut self, window_id: *mut std::ffi::c_void) -> Result<(usize, usize), Error> {
         let dims = unsafe { vst3_wrapper_sys::show_gui(self.app, window_id as *const c_void) };
 
-        return Ok((dims.width as usize, dims.height as usize));
+        Ok((dims.width as usize, dims.height as usize))
     }
 
     fn hide_editor(&mut self) {
@@ -196,6 +193,12 @@ fn last_param_updates(events: &[HostIssuedEvent]) -> Vec<ParameterUpdate> {
     let mut updates: HashMap<i32, ParamUpdate> = HashMap::new();
     for event in events {
         if let HostIssuedEventType::Parameter(ref param) = event.event_type {
+            if let Some(existing) = updates.get_mut(&param.parameter_id) {
+                if event.block_time < existing.block_time {
+                    continue;
+                }
+            }
+
             updates.insert(
                 param.parameter_id,
                 ParamUpdate {
@@ -206,5 +209,5 @@ fn last_param_updates(events: &[HostIssuedEvent]) -> Vec<ParameterUpdate> {
         }
     }
 
-    updates.iter().map(|(_, v)| v.param.clone()).collect()
+    updates.values().map(|v| v.param.clone()).collect()
 }

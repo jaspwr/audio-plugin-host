@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::i8;
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -202,8 +201,8 @@ impl PluginInner for Vst2 {
 
     fn process(
         &mut self,
-        inputs: &Vec<AudioBus<f32>>,
-        outputs: &mut Vec<AudioBus<f32>>,
+        inputs: &[AudioBus<f32>],
+        outputs: &mut [AudioBus<f32>],
         events: Vec<HostIssuedEvent>,
         process_details: &ProcessDetails,
     ) {
@@ -237,14 +236,6 @@ impl PluginInner for Vst2 {
 
         self.plugin_instance.process(&mut audio_buffer);
     }
-
-    // fn list_params(&self) -> Vec<String> {
-    //     let num_params = self.plugin_instance.get_info().parameters;
-    //
-    //     (0..num_params)
-    //         .map(|i| self.plugin_instance.get_parameter_name(i))
-    //         .collect()
-    // }
 
     fn set_preset_data(&mut self, data: Vec<u8>) -> Result<(), String> {
         if !self.plugin_instance.get_info().preset_chunks {
@@ -281,14 +272,6 @@ impl PluginInner for Vst2 {
             .change_preset(id);
         Ok(())
     }
-
-    // fn list_params(&self) -> Vec<String> {
-    //     let num_params = self.plugin_instance.get_info().parameters;
-    //
-    //     (0..num_params)
-    //         .map(|i| self.plugin_instance.get_parameter_name(i))
-    //         .collect()
-    // }
 
     fn get_parameter(&self, id: i32) -> crate::parameter::Parameter {
         let value = self.parameter_object.get_parameter(id);
@@ -338,28 +321,7 @@ impl PluginInner for Vst2 {
         self.plugin_instance.initial_delay() as usize
     }
 
-    //
-    //     actions
-    // }
 }
-
-// fn to_vst2_key(key: &Key) -> KeyCode {
-//     let mut modifier = 0;
-//
-//     if key.control {
-//         modifier |= vst::api::ModifierKey::CONTROL.bits();
-//     }
-//
-//     if key.shift {
-//         modifier |= vst::api::ModifierKey::SHIFT.bits();
-//     }
-//
-//     KeyCode {
-//         character: key.character().unwrap_or('\0'),
-//         key: vst::editor::Key::None,
-//         modifier,
-//     }
-// }
 
 #[allow(dead_code)]
 struct Vst2Host {
@@ -582,8 +544,7 @@ fn process_vst2_midi_events_list(
 fn midi_event_to_vst2_event(midi_event: &HostIssuedEvent) -> Option<*mut Event> {
     let frame = midi_event.block_time;
 
-    let HostIssuedEventType::Midi(ref event) = midi_event.event_type
-    else {
+    let HostIssuedEventType::Midi(ref event) = midi_event.event_type else {
         return None;
     };
 

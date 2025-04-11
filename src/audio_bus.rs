@@ -34,12 +34,14 @@ impl IOConfigutaion {
             return false;
         }
 
+        #[allow(clippy::needless_range_loop)]
         for i in 0..self.audio_inputs.len() {
             if self.audio_inputs[i].channels != inputs[i].channels() {
                 return false;
             }
         }
 
+        #[allow(clippy::needless_range_loop)]
         for i in 0..self.audio_outputs.len() {
             if self.audio_outputs[i].channels != outputs[i].channels() {
                 return false;
@@ -56,7 +58,7 @@ pub struct AudioBusDescriptor {
     pub channels: usize,
 }
 
-impl<'a, T> AudioBus<'a, T>
+impl<T> AudioBus<'_, T>
 where
     T: Default + Clone,
 {
@@ -71,7 +73,7 @@ where
     }
 }
 
-impl<'a, T> Drop for AudioBus<'a, T> {
+impl<T> Drop for AudioBus<'_, T> {
     fn drop(&mut self) {
         if !self.owned_data.is_null() {
             unsafe {

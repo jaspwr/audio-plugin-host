@@ -1,4 +1,6 @@
-use std::{fmt::{Debug, Display}, mem, ops::Index};
+use std::{fmt::Debug, mem, ops::Index};
+
+use crate::error::{err, Error};
 
 #[repr(C)]
 union MaybeUninit<T: Copy> {
@@ -41,6 +43,12 @@ impl<T: Copy + Debug, const N: usize> Debug for HeaplessVec<T, N> {
     }
 }
 
+impl<T: Copy, const N: usize> Default for HeaplessVec<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Copy, const N: usize> HeaplessVec<T, N> {
     pub fn new() -> Self {
         Self {
@@ -49,13 +57,13 @@ impl<T: Copy, const N: usize> HeaplessVec<T, N> {
         }
     }
 
-    pub fn push(&mut self, value: T) -> Result<(), ()> {
+    pub fn push(&mut self, value: T) -> Result<(), Error> {
         if self.count < N {
             self.data[self.count].value = value;
             self.count += 1;
             Ok(())
         } else {
-            Err(())
+            err("HeaplessVec: vector is full")
         }
     }
 

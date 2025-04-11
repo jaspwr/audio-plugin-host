@@ -2,7 +2,7 @@ mod clap;
 mod vst2;
 mod vst3;
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use ringbuf::HeapProd;
 
@@ -13,7 +13,7 @@ use crate::host::Host;
 use crate::plugin::PluginInner;
 
 pub fn load_any(
-    path: &PathBuf,
+    path: &Path,
     common: Common,
 ) -> Result<(Box<dyn PluginInner>, PluginDescriptor), Error> {
     if is_vst2(path, true) {

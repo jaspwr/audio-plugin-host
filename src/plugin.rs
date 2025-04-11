@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::atomic::AtomicUsize};
+use std::{path::Path, sync::atomic::AtomicUsize};
 
 use ringbuf::{traits::*, HeapCons, HeapRb};
 
@@ -14,7 +14,7 @@ use crate::{
 
 /// Loads a plugin of any of the supported formats from the given path and returns a
 /// `PluginInstance`.
-pub fn load(path: &PathBuf, host: &Host) -> Result<PluginInstance, Error> {
+pub fn load(path: &Path, host: &Host) -> Result<PluginInstance, Error> {
     let plugin_issued_events: HeapRb<PluginIssuedEvent> = HeapRb::new(512);
     let (plugin_issued_events_producer, plugin_issued_events_consumer) =
         plugin_issued_events.split();
@@ -76,8 +76,8 @@ impl PluginInstance {
         self.inner.process(inputs, outputs, events, process_details);
     }
 
-    /// {UI Thread} Must be called routinely by the UI thread. Consume `PluginIssuedEvent`s 
-    /// queued by the plugin. Informs the host of parameter changes in the editor, latency 
+    /// {UI Thread} Must be called routinely by the UI thread. Consume `PluginIssuedEvent`s
+    /// queued by the plugin. Informs the host of parameter changes in the editor, latency
     /// changes, etc.
     pub fn get_events(&mut self) -> Vec<PluginIssuedEvent> {
         self.inner.editor_updates();
@@ -206,8 +206,8 @@ impl PluginInstance {
 pub(crate) trait PluginInner {
     fn process(
         &mut self,
-        inputs: &Vec<AudioBus<f32>>,
-        outputs: &mut Vec<AudioBus<f32>>,
+        inputs: &[AudioBus<f32>],
+        outputs: &mut [AudioBus<f32>],
         events: Vec<HostIssuedEvent>,
         process_details: &ProcessDetails,
     );
