@@ -7,18 +7,6 @@ pub struct Host {
     pub language: Option<Language>,
 }
 
-/// Create host using crate name, version and authors
-#[macro_export]
-macro_rules! new_host {
-    () => {
-        Host::new(
-            env!("CARGO_PKG_NAME"),
-            env!("CARGO_PKG_VERSION"),
-            env!("CARGO_PKG_AUTHORS"),
-        )
-    };
-}
-
 impl Host {
     pub fn new(name: &'static str, version: &'static str, vendor: &'static str) -> Self {
         Self {

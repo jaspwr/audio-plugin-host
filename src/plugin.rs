@@ -70,13 +70,12 @@ impl PluginInstance {
         self.inner.process(inputs, outputs, events, process_details);
     }
 
-    /// {UI thread} Must be called routinely to process the plugin's UI events. Some formats like
-    /// VST3 require plugins to be synced by the host which happens in this function.
-    pub fn editor_updates(&mut self) {}
-
-    /// {UI Thread} Consume `PluginIssuedEvent`s queued by the plugin. Informs the host
-    /// of parameter changes in the editor, latency changes, etc.
+    /// {UI Thread} Must be called routinely by the UI thread. Consume `PluginIssuedEvent`s 
+    /// queued by the plugin. Informs the host of parameter changes in the editor, latency 
+    /// changes, etc.
     pub fn get_events(&mut self) -> Vec<PluginIssuedEvent> {
+        self.inner.editor_updates();
+
         let mut events = Vec::new();
         while let Some(event) = self.plugin_issued_events.try_pop() {
             events.extend(self.handle_plugin_event(&event));
@@ -222,4 +221,6 @@ pub trait PluginInner {
     fn get_io_configuration(&self) -> IOConfigutaion;
 
     fn get_latency(&mut self) -> Samples;
+
+    fn editor_updates(&mut self) {}
 }

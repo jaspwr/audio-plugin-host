@@ -7,14 +7,15 @@ pub mod parameter;
 pub mod plugin;
 
 mod formats;
+pub mod heapless_vec;
+
+///////////////////// Unsorted
 
 pub type SampleRate = usize;
 pub type BlockSize = usize;
 pub type Tempo = f64;
 pub type PpqTime = f64;
 pub type Samples = usize;
-
-///////////////////// Unsorted
 
 #[repr(C)]
 #[derive(Clone)]
@@ -75,17 +76,3 @@ impl PlayingState {
 
 ///////////////////////
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}

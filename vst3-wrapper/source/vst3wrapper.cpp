@@ -28,6 +28,37 @@ void send_param_change_event(const void *plugin_sent_events_producer,
   send_event_to_host(&event, plugin_sent_events_producer);
 }
 
+class PlugFrame : public Steinberg::IPlugFrame {
+public:
+  const void *plugin_sent_events_producer = nullptr;
+
+  PlugFrame(const void *_plugin_sent_events_producer) {
+    plugin_sent_events_producer = _plugin_sent_events_producer;
+  }
+
+  Steinberg::tresult resizeView(Steinberg::IPlugView *view,
+                                Steinberg::ViewRect *newSize) override {
+    PluginIssuedEvent event = {};
+    event.tag = PluginIssuedEvent::Tag::ResizeWindow;
+    event.resize_window = {};
+    event.resize_window._0 = (uintptr_t)newSize->getWidth();
+    event.resize_window._1 = (uintptr_t)newSize->getHeight();
+
+    send_event_to_host(&event, plugin_sent_events_producer);
+
+    return Steinberg::kResultOk;
+  }
+
+  Steinberg::tresult queryInterface(const Steinberg::TUID /*_iid*/,
+                                    void ** /*obj*/) override {
+    return Steinberg::kNoInterface;
+  }
+  // we do not care here of the ref-counting. A plug-in call of release should
+  // not destroy this class!
+  Steinberg::uint32 addRef() override { return 1000; }
+  Steinberg::uint32 release() override { return 1000; }
+};
+
 class ComponentHandler : public Steinberg::Vst::IComponentHandler {
 public:
   std::vector<ParameterEditState> *param_edits = nullptr;
@@ -135,8 +166,6 @@ using namespace Steinberg::Vst;
 PluginInstance::PluginInstance() {}
 
 PluginInstance::~PluginInstance() { destroy(); }
-
-#define NEW new
 
 const int MAX_BLOCK_SIZE = 4096 * 2;
 
@@ -452,6 +481,8 @@ Dims PluginInstance::createView(void *window_id) {
       printf("EditController does not provide its own view");
       return {};
     }
+
+    _view->setFrame(owned(new PlugFrame(plugin_sent_events_producer)));
   }
 
 #ifdef _WIN32
@@ -464,15 +495,6 @@ Dims PluginInstance::createView(void *window_id) {
   printf("Platform is not supported yet");
   return false;
 #endif
-
-  // _window = SDL_CreateWindow(_name.data(), SDL_WINDOWPOS_UNDEFINED,
-  //                            SDL_WINDOWPOS_UNDEFINED, viewRect.getWidth(),
-  //                            viewRect.getHeight(), SDL_WINDOW_SHOWN);
-  // SDL_SetWindowData(_window, "PluginInstanceInstance", this);
-  //
-  // SDL_SysWMinfo wmInfo = {};
-  // SDL_VERSION(&wmInfo.version);
-  // SDL_GetWindowWMInfo(_window, &wmInfo);
 
 #ifdef _WIN32
   if (_view->attached(window_id, Steinberg::kPlatformTypeHWND) !=
@@ -592,7 +614,7 @@ void vst3_set_sample_rate(const void *app, int32_t rate) {
   vst->_processData.processContext->sampleRate = rate;
 }
 
-const void *get_data(void *app, int *data_len, void **stream) {
+const void *get_data(const void *app, int32_t *data_len, const void **stream) {
   PluginInstance *vst = (PluginInstance *)app;
 
   ResizableMemoryIBStream *stream_ = new ResizableMemoryIBStream();
@@ -610,18 +632,18 @@ const void *get_data(void *app, int *data_len, void **stream) {
   return stream_->getData();
 }
 
-void free_data_stream(void *stream) {
+void free_data_stream(const void *stream) {
   ResizableMemoryIBStream *stream_ = (ResizableMemoryIBStream *)stream;
   delete stream_;
 }
 
-void set_data(void *app, void *data, int data_len) {
+void set_data(const void *app, const void *data, int32_t data_len) {
   PluginInstance *vst = (PluginInstance *)app;
 
   ResizableMemoryIBStream stream = {};
 
   int num_bytes_written = 0;
-  stream.write(data, data_len, &num_bytes_written);
+  stream.write((void *)data, data_len, &num_bytes_written);
   assert(data_len == num_bytes_written);
 
   if (vst->_vstPlug->setState(&stream) != kResultOk) {
@@ -774,37 +796,12 @@ void process(const void *app, ProcessDetails data, float **input,
   }
 }
 
-void set_param_from_ui_thread(void *app, int id, float value) {
+void set_param_in_edit_controller(const void *app, int32_t id, float value) {
   PluginInstance *vst = (PluginInstance *)app;
-  std::cout << "setting " << id << " -> " << value << std::endl;
 
   if (vst->_editController->setParamNormalized(id, value) != kResultOk) {
     std::cout << "Failed to set parameter normalized" << std::endl;
   }
-}
-
-char *parameter_names(void *app) {
-  PluginInstance *vst = (PluginInstance *)app;
-
-  int params_count = vst->_editController->getParameterCount();
-
-  std::string names = {};
-
-  for (int i = 0; i < params_count; i++) {
-    ParameterInfo param_info = {};
-    vst->_editController->getParameterInfo(i, param_info);
-    for (TChar c : param_info.title) {
-      if (c != '\0') {
-        names += c;
-      }
-    }
-    names += ",";
-  }
-
-  char *c_str = new char[names.size() + 1];
-  std::strcpy(c_str, names.c_str());
-
-  return c_str;
 }
 
 void free_string(const char *str) { delete[] str; }
@@ -850,4 +847,41 @@ ParameterFFI get_parameter(const void *app, int32_t id) {
   param.formatted_value = alloc_string(formatted_value_c_str.c_str());
 
   return param;
+}
+
+
+IOConfigutaion io_config(const void *app) {
+  PluginInstance *vst = (PluginInstance *)app;
+
+  IOConfigutaion io_config = {};
+  io_config.audio_inputs = {};
+  io_config.audio_outputs = {};
+
+  auto audio_inputs =
+      vst->_vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kInput);
+  auto audio_outputs =
+      vst->_vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kOutput);
+
+  for (int i = 0; i < audio_inputs; i++) {
+    BusInfo info;
+    vst->_vstPlug->getBusInfo(MediaTypes::kAudio, BusDirections::kInput, i,
+                              info);
+    io_config.audio_inputs.count++;
+    io_config.audio_inputs.data[i] = {};
+    io_config.audio_inputs.data[i].value.channels = info.channelCount;
+  }
+
+  for (int i = 0; i < audio_outputs; i++) {
+    BusInfo info;
+    vst->_vstPlug->getBusInfo(MediaTypes::kAudio, BusDirections::kOutput, i,
+                              info);
+    io_config.audio_outputs.count++;
+    io_config.audio_outputs.data[i] = {};
+    io_config.audio_outputs.data[i].value.channels = info.channelCount;
+  }
+
+  // vst->_vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kInput);
+  // vst->_vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kOutput);
+
+  return io_config;
 }

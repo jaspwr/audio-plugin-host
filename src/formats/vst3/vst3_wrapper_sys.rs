@@ -6,10 +6,7 @@ use std::{
 use ringbuf::{traits::Producer, HeapProd};
 
 use crate::{
-    event::PluginIssuedEvent,
-    formats::{Format, PluginDescriptor},
-    parameter::{Parameter, ParameterUpdate},
-    ProcessDetails,
+    audio_bus::IOConfigutaion, event::PluginIssuedEvent, formats::{Format, PluginDescriptor}, parameter::{Parameter, ParameterUpdate}, ProcessDetails
 };
 
 #[link(name = "vst3wrapper", kind = "static")]
@@ -21,6 +18,7 @@ extern "C" {
     pub fn show_gui(app: *const c_void, window_id: *const c_void) -> Dims;
     pub fn hide_gui(app: *const c_void);
     pub fn descriptor(app: *const c_void) -> FFIPluginDescriptor;
+    pub fn io_config(app: *const c_void) -> IOConfigutaion;
     pub fn process(
         app: *const c_void,
         data: ProcessDetails,
@@ -31,20 +29,18 @@ extern "C" {
         parameter_change_count: *mut i32,
         parameter_changes: *mut ParameterUpdate,
     );
-    fn parameter_names(app: *const c_void) -> *const c_char;
-    fn free_string(str: *const c_char);
-    fn set_param_from_ui_thread(app: *const c_void, id: i32, value: f32);
+    pub fn set_param_in_edit_controller(app: *const c_void, id: i32, value: f32);
+    pub fn get_parameter(app: *const c_void, id: i32) -> ParameterFFI;
 
-    fn get_data(
+    pub fn get_data(
         app: *const c_void,
         data_len: *mut i32,
         stream: *mut *const c_void,
     ) -> *const c_void;
-    fn free_data_stream(stream: *const c_void);
-    fn set_data(app: *const c_void, data: *const c_void, data_len: i32);
+    pub fn free_data_stream(stream: *const c_void);
+    pub fn set_data(app: *const c_void, data: *const c_void, data_len: i32);
 
-    fn consume_parameter(app: *const c_void, param: *mut ParameterEditState) -> bool;
-    pub fn get_parameter(app: *const c_void, id: i32) -> ParameterFFI;
+    fn free_string(str: *const c_char);
 }
 
 #[no_mangle]

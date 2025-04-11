@@ -24,6 +24,26 @@ struct FFIPluginDescriptor {
   int initial_latency;
 };
 
+struct AudioBusDescriptor {
+  uintptr_t channels;
+};
+
+template<typename T>
+union MaybeUninit {
+  T value;
+};
+
+template<typename T, uintptr_t N>
+struct HeaplessVec {
+  uintptr_t count;
+  MaybeUninit<T> data[N];
+};
+
+struct IOConfigutaion {
+  HeaplessVec<AudioBusDescriptor, 16> audio_inputs;
+  HeaplessVec<AudioBusDescriptor, 16> audio_outputs;
+};
+
 using SampleRate = uintptr_t;
 
 using BlockSize = uintptr_t;
@@ -66,13 +86,6 @@ struct ParameterUpdate {
   float initial_value;
   ///  If `true`, the user has just released the control and this is the final value.
   bool end_edit;
-};
-
-struct ParameterEditState {
-  int id;
-  float initial_value;
-  float current_value;
-  bool finished;
 };
 
 struct ParameterFFI {
@@ -126,6 +139,8 @@ extern void hide_gui(const void *app);
 
 extern FFIPluginDescriptor descriptor(const void *app);
 
+extern IOConfigutaion io_config(const void *app);
+
 extern void process(const void *app,
                     ProcessDetails data,
                     float **input,
@@ -135,11 +150,9 @@ extern void process(const void *app,
                     int32_t *parameter_change_count,
                     ParameterUpdate *parameter_changes);
 
-extern const char *parameter_names(const void *app);
+extern void set_param_in_edit_controller(const void *app, int32_t id, float value);
 
-extern void free_string(const char *str);
-
-extern void set_param_from_ui_thread(const void *app, int32_t id, float value);
+extern ParameterFFI get_parameter(const void *app, int32_t id);
 
 extern const void *get_data(const void *app, int32_t *data_len, const void **stream);
 
@@ -147,9 +160,7 @@ extern void free_data_stream(const void *stream);
 
 extern void set_data(const void *app, const void *data, int32_t data_len);
 
-extern bool consume_parameter(const void *app, ParameterEditState *param);
-
-extern ParameterFFI get_parameter(const void *app, int32_t id);
+extern void free_string(const char *str);
 
 void send_event_to_host(const PluginIssuedEvent *event, const void *plugin_sent_events_producer);
 

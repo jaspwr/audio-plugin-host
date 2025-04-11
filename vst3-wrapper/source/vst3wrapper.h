@@ -19,6 +19,13 @@ struct ParameterChange {
   float value;
 };
 
+struct ParameterEditState {
+  int id;
+  float initial_value;
+  float current_value;
+  bool finished;
+};
+
 class PluginInstance {
 public:
   PluginInstance();

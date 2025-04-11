@@ -1,0 +1,103 @@
+use std::{fmt::{Debug, Display}, mem};
+
+#[repr(C)]
+union MaybeUninit<T: Copy> {
+    uninit: (),
+    pub value: T,
+}
+
+impl<T: Copy> Default for MaybeUninit<T> {
+    fn default() -> Self {
+        Self { uninit: () }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct HeaplessVec<T: Copy, const N: usize> {
+    count: usize,
+    data: [MaybeUninit<T>; N],
+}
+
+impl<T: Copy> Clone for MaybeUninit<T> {
+    fn clone(&self) -> Self {
+        unsafe { MaybeUninit { value: self.value } }
+    }
+}
+
+impl<T: Copy + Debug, const N: usize> Debug for HeaplessVec<T, N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = String::new();
+        for i in 0..self.count {
+            if i > 0 {
+                s.push_str(", ");
+            }
+            unsafe {
+                s.push_str(&format!("{:?}", self.data[i].value));
+            }
+        }
+        write!(f, "[{}]", s)
+    }
+}
+
+impl<T: Copy, const N: usize> HeaplessVec<T, N> {
+    pub fn new() -> Self {
+        Self {
+            count: 0,
+            data: unsafe { mem::zeroed() },
+        }
+    }
+
+    pub fn push(&mut self, value: T) -> Result<(), ()> {
+        if self.count < N {
+            self.data[self.count].value = value;
+            self.count += 1;
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn pop(&mut self) -> Option<T> {
+        if self.count > 0 {
+            self.count -= 1;
+            Some(unsafe { mem::take(&mut self.data[self.count]).value })
+        } else {
+            None
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.count == 0
+    }
+
+    pub fn len(&self) -> usize {
+        self.count
+    }
+
+    pub fn iter(&self) -> HeaplessVecIter<T, N> {
+        HeaplessVecIter {
+            vec: self,
+            index: 0,
+        }
+    }
+}
+
+pub struct HeaplessVecIter<'a, T: Copy, const N: usize> {
+    vec: &'a HeaplessVec<T, N>,
+    index: usize,
+}
+
+impl<'a, T: Copy, const N: usize> Iterator for HeaplessVecIter<'a, T, N> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.vec.count {
+            let item = unsafe { &self.vec.data[self.index].value };
+            self.index += 1;
+            Some(item)
+        } else {
+            None
+        }
+    }
+}

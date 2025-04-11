@@ -8,6 +8,7 @@ use crate::discovery::PluginDescriptor;
 use crate::error::err;
 use crate::event::{HostIssuedEvent, HostIssuedEventType, PluginIssuedEvent};
 use crate::formats::Format;
+use crate::heapless_vec::HeaplessVec;
 use crate::host::{Host, KnobPreference, Language};
 use crate::parameter::Parameter;
 use crate::plugin::PluginInner;
@@ -311,18 +312,18 @@ impl PluginInner for Vst2 {
     fn get_io_configuration(&self) -> IOConfigutaion {
         let info = self.plugin_instance.get_info();
 
-        let mut inputs = vec![];
+        let mut inputs = HeaplessVec::new();
 
         if info.inputs > 0 {
-            inputs.push(AudioBusDescriptor {
+            let _ = inputs.push(AudioBusDescriptor {
                 channels: info.inputs as usize,
             });
         }
 
-        let mut outputs = vec![];
+        let mut outputs = HeaplessVec::new();
 
         if info.outputs > 0 {
-            outputs.push(AudioBusDescriptor {
+            let _ = outputs.push(AudioBusDescriptor {
                 channels: info.outputs as usize,
             });
         }
