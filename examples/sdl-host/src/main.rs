@@ -111,7 +111,7 @@ impl AudioCallback for SDLAudioDeviceCallback {
 
         for i in 0..self.block_size {
             for j in 0..CHANNELS as usize {
-                out[i * CHANNELS as usize + j] = output[j][i];
+                // out[i * CHANNELS as usize + j] = output[j][i];
             }
         }
     }

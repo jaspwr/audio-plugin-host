@@ -25,7 +25,9 @@ pub struct ProcessDetails {
     pub player_time: PpqTime,
     pub time_signature_numerator: usize,
     pub time_signature_denominator: usize,
-    pub cycle: Option<(PpqTime, PpqTime)>,
+    pub cycle_enabled: bool,
+    pub cycle_start: PpqTime,
+    pub cycle_end: PpqTime,
     pub playing_state: PlayingState,
     pub bar_start_pos: PpqTime,
     pub nanos: f64,
@@ -40,7 +42,9 @@ impl Default for ProcessDetails {
             player_time: 0.0,
             time_signature_numerator: 4,
             time_signature_denominator: 4,
-            cycle: None,
+            cycle_enabled: false,
+            cycle_start: 0.0,
+            cycle_end: 0.0,
             playing_state: PlayingState::Stopped,
             bar_start_pos: 0.0,
             nanos: 0.0,
@@ -49,6 +53,7 @@ impl Default for ProcessDetails {
 }
 
 #[derive(Default, PartialEq, Eq, Clone, Copy, Debug)]
+#[repr(u8)]
 pub enum PlayingState {
     #[default]
     Stopped,

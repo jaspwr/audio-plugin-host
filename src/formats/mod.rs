@@ -21,7 +21,7 @@ pub fn load_any(
     }
 
     if is_vst3(path) {
-        return vst3::load(path);
+        return vst3::load(path, common);
     }
 
     if is_clap(path) {

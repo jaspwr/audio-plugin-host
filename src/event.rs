@@ -13,16 +13,21 @@ pub struct HostIssuedEvent {
 
 #[derive(Debug, Clone)]
 pub enum HostIssuedEventType {
-    Midi {
-        note_length: Samples,
-        midi_data: [u8; 3],
-        detune: f32,
-    },
+    Midi(MidiEvent),
     Parameter(ParameterUpdate),
 }
 
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct MidiEvent {
+    pub note_length: Samples,
+    pub midi_data: [u8; 3],
+    pub detune: f32,
+}
+
 /// Events sent to the host from the plugin. Queued in the plugin and the consumed from the `get_events` function.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+#[repr(C)]
 pub enum PluginIssuedEvent {
     /// Plugin changed it's latency. New latency is in samples.
     ChangeLatency(usize),

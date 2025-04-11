@@ -199,31 +199,6 @@ impl PluginInner for Vst2 {
     //     }
     // }
 
-    // async fn handle_param_updates_processor_thread(
-    // fn list_params(&self) -> Vec<String> {
-    //     let num_params = self.plugin_instance.get_info().parameters;
-    //
-    //     (0..num_params)
-    //         .map(|i| self.plugin_instance.get_parameter_name(i))
-    //         .collect()
-    // }
-    //     &mut self,
-    //     parameters: &ParameterMap,
-    //     param_names: &HashMap<String, u32>,
-    // ) {
-    //     for (tag, id) in param_names.clone() {
-    //         if !is_param_dirty(&tag, parameters).await {
-    //             continue;
-    //         }
-    //
-    //         let index = id as i32;
-    //         let value = get_float_param(&tag, parameters).await.unwrap_or(0.0);
-    //
-    //         let p = self.plugin_instance.get_parameter_object();
-    //         p.set_parameter(index, value);
-    //     }
-    // }
-
     fn process(
         &mut self,
         inputs: &Vec<AudioBus<f32>>,
@@ -397,7 +372,7 @@ struct Vst2Host {
 
 impl vst::host::Host for Vst2Host {
     fn automate(&self, index: i32, value: f32) {
-        let mut inital_value = None;
+        let mut initial_value = None;
 
         {
             let mut editor_params_state = self.editor_params_state.lock().unwrap();
@@ -416,7 +391,7 @@ impl vst::host::Host for Vst2Host {
             } else {
                 let editing_index = editing_index.unwrap();
                 editor_params_state.currently_editing[editing_index].current = value;
-                inital_value = Some(editor_params_state.currently_editing[editing_index].initial);
+                initial_value = Some(editor_params_state.currently_editing[editing_index].initial);
             }
 
             editor_params_state.just_started.retain(|&i| i != index);
@@ -429,9 +404,8 @@ impl vst::host::Host for Vst2Host {
                     crate::parameter::ParameterUpdate {
                         parameter_id: index,
                         current_value: value,
-                        inital_value,
-                        end_edit: Some(false),
-                        formatted_value: None,
+                        initial_value: initial_value.unwrap_or(f32::NAN),
+                        end_edit: false,
                     },
                 ));
     }
@@ -447,12 +421,12 @@ impl vst::host::Host for Vst2Host {
             | TimeInfoFlags::PPQ_POS_VALID
             | TimeInfoFlags::BARS_VALID;
 
-        if let Some((start, end)) = details.cycle {
+        if details.cycle_enabled {
             flags |= TimeInfoFlags::TRANSPORT_CYCLE_ACTIVE;
             flags |= TimeInfoFlags::CYCLE_POS_VALID;
 
-            info.cycle_start_pos = start;
-            info.cycle_end_pos = end;
+            info.cycle_start_pos = details.cycle_start;
+            info.cycle_end_pos = details.cycle_end;
         }
 
         if details.playing_state == PlayingState::Recording {
@@ -506,9 +480,8 @@ impl vst::host::Host for Vst2Host {
                 PluginIssuedEvent::Parameter(crate::parameter::ParameterUpdate {
                     parameter_id: index as i32,
                     current_value: param.current,
-                    inital_value: Some(param.initial),
-                    end_edit: Some(true),
-                    formatted_value: None,
+                    initial_value: param.initial,
+                    end_edit: true,
                 }),
             );
         }
@@ -608,11 +581,7 @@ fn process_vst2_midi_events_list(
 fn midi_event_to_vst2_event(midi_event: &HostIssuedEvent) -> Option<*mut Event> {
     let frame = midi_event.block_time;
 
-    let HostIssuedEventType::Midi {
-        midi_data,
-        note_length,
-        detune,
-    } = midi_event.event_type
+    let HostIssuedEventType::Midi(ref event) = midi_event.event_type
     else {
         return None;
     };
@@ -622,10 +591,10 @@ fn midi_event_to_vst2_event(midi_event: &HostIssuedEvent) -> Option<*mut Event> 
         byte_size: 0,
         delta_frames: frame as i32,
         flags: 0,
-        note_length: note_length as i32,
+        note_length: event.note_length as i32,
         note_offset: 0,
-        midi_data,
-        detune: detune as i8,
+        midi_data: event.midi_data,
+        detune: event.detune as i8,
         note_off_velocity: 0,
         _reserved1: 0,
         _reserved2: 0,

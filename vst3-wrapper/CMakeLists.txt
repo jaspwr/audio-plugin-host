@@ -40,7 +40,7 @@ set(vst3wrapper_sources
     # ${SDK_ROOT}/public.sdk/source/vst/hosting/plugprovider.h
     source/vst3wrapper.cpp
     source/vst3wrapper.h
-    # source/memoryibstream.h
+    source/memoryibstream.h
 )
 
 set(target vst3wrapper)

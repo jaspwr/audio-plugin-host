@@ -10,3 +10,4 @@ vst = { path = "vendor/vst-rs", features = ["disable_deprecation_warning"] }
 
 [build-dependencies]
 cmake = "0.1"
+cbindgen = "0.28.0"

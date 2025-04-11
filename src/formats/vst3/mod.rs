@@ -1,59 +1,44 @@
 use std::ffi::c_void;
 use std::path::Path;
 
-use crate::audio_bus::IOConfigutaion;
+use ringbuf::HeapProd;
+use vst3_wrapper_sys::{descriptor, get_parameter};
+
 use crate::discovery::PluginDescriptor;
 use crate::error::Error;
 use crate::plugin::PluginInner;
+use crate::{audio_bus::IOConfigutaion, event::PluginIssuedEvent};
 
-use super::Format;
+use super::{Common, Format};
 
 mod vst3_wrapper_sys;
 
 struct Vst3 {
     app: *const c_void,
+    plugin_issued_events_producer: Box<HeapProd<PluginIssuedEvent>>,
 }
 
-pub fn load(path: &Path) -> Result<(Box<dyn PluginInner>, PluginDescriptor), Error> {
+pub fn load(
+    path: &Path,
+    common: Common,
+) -> Result<(Box<dyn PluginInner>, PluginDescriptor), Error> {
+    let plugin_issued_events_producer = Box::new(common.plugin_issued_events_producer);
+
     let app = unsafe {
         let plugin_path = std::ffi::CString::new(path.to_str().unwrap()).unwrap();
-        vst3_wrapper_sys::load_plugin(plugin_path.as_ptr())
+        vst3_wrapper_sys::load_plugin(
+            plugin_path.as_ptr(),
+            &*plugin_issued_events_producer as *const _ as *const c_void,
+        )
     };
 
+    let descriptor = unsafe { descriptor(app) }.to_plugin_descriptor(path);
     let processor = Vst3 {
         app,
-    };
-    let name = processor.get_name();
-    let vendor = "idk".to_string();
-
-    let descriptor = PluginDescriptor {
-        name: name.to_string(),
-        vendor: vendor.to_string(),
-        id: "1".to_string(),
-        path: path.to_path_buf(),
-        version: "1".to_string(),
-        format: Format::Vst3,
-        initial_latency: 0,
+        plugin_issued_events_producer,
     };
 
-    Ok(
-        (
-            Box::new(processor),
-            descriptor,
-        )
-    )
-}
-
-impl Vst3 {
-    fn get_name(&self) -> String {
-        unsafe {
-            let name = vst3_wrapper_sys::name(self.app);
-            std::ffi::CStr::from_ptr(name)
-                .to_str()
-                .unwrap_or("[invaid plugin name]")
-                .to_string()
-        }
-    }
+    Ok((Box::new(processor), descriptor))
 }
 
 impl PluginInner for Vst3 {
@@ -83,37 +68,22 @@ impl PluginInner for Vst3 {
     }
 
     fn get_parameter(&self, id: i32) -> crate::parameter::Parameter {
-        todo!()
+        unsafe { get_parameter(self.app, id) }.to_parameter()
     }
 
     fn show_editor(&mut self, window_id: *mut std::ffi::c_void) -> Result<(usize, usize), Error> {
-        let dims = unsafe {
-            // show_gui(self.app, window_id as *const c_void);
-            vst3_wrapper_sys::show_gui(self.app, window_id as *const c_void)
-        };
+        let dims = unsafe { vst3_wrapper_sys::show_gui(self.app, window_id as *const c_void) };
 
         return Ok((dims.width as usize, dims.height as usize));
     }
 
     fn hide_editor(&mut self) {
-        todo!()
+        unsafe { vst3_wrapper_sys::hide_gui(self.app) };
     }
 
-    fn change_sample_rate(&mut self, rate: crate::SampleRate) {
-        todo!()
-    }
+    fn suspend(&mut self) {}
 
-    fn change_block_size(&mut self, size: crate::BlockSize) {
-        todo!()
-    }
-
-    fn suspend(&mut self) {
-        todo!()
-    }
-
-    fn resume(&mut self) {
-        todo!()
-    }
+    fn resume(&mut self) {}
 
     fn get_io_configuration(&self) -> crate::audio_bus::IOConfigutaion {
         IOConfigutaion {
@@ -123,6 +93,6 @@ impl PluginInner for Vst3 {
     }
 
     fn get_latency(&mut self) -> crate::Samples {
-        todo!()
+        0
     }
 }

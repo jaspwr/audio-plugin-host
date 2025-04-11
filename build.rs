@@ -1,24 +1,27 @@
+use std::env;
+
 use cmake::Config;
 
 fn main() {
+    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    cbindgen::Builder::new()
+      .with_crate(crate_dir)
+      .generate()
+      .expect("Unable to generate bindings")
+      .write_to_file("vst3-wrapper/source/bindings.h");
+
     println!("cargo:rustc-link-lib=ole32");
 
     let dst = Config::new("vst3-wrapper")
         .build_target("vst3wrapper")
         .profile("Release")
         .no_default_flags(true)
-        .build();
+        .build()
+        .join("build").join("Release");
 
-    let profile = std::env::var("PROFILE").unwrap();
-    let path = match profile.as_str() {
-        "debug" => dst.join("build").join("Debug"),
-        "release" => dst.join("build").join("Release"),
-        _ => panic!("Unknown profile: {}", profile),
-    };
+    println!("cargo::warning={}", dst.display());
 
-    println!("cargo::warning={}", path.display());
-
-    println!("cargo:rustc-link-search=native={}", path.display());
+    println!("cargo:rustc-link-search=native={}", dst.display());
 
     // println!("cargo:rustc-link-search=native=./vst3-wrapper/build/Release");
 

@@ -214,8 +214,8 @@ pub trait PluginInner {
     fn show_editor(&mut self, window_id: *mut std::ffi::c_void) -> Result<(usize, usize), Error>;
     fn hide_editor(&mut self);
 
-    fn change_sample_rate(&mut self, rate: SampleRate);
-    fn change_block_size(&mut self, size: BlockSize);
+    fn change_sample_rate(&mut self, _rate: SampleRate) {}
+    fn change_block_size(&mut self, _size: BlockSize) {}
     fn suspend(&mut self);
     fn resume(&mut self);
 
