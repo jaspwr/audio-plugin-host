@@ -2,7 +2,11 @@ cmake_minimum_required(VERSION 3.10)
 
 project(vst3wrapper)
 
-set(VST_SOURCE_DIR "C:/Users/jaspe/Downloads/VST_SDK")
+if(DEFINED ENV{VSTSDK_DIR})
+    file(TO_CMAKE_PATH $ENV{VSTSDK_DIR} VST_SOURCE_DIR)
+else()
+    message(FATAL_ERROR "VSTSDK_DIR environment variable is not set.")
+endif()
 
 add_library(VST_SDK
     ${VST_SOURCE_DIR}/vst3sdk/public.sdk/source/vst/hosting/connectionproxy.cpp
