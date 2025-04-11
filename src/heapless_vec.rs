@@ -1,4 +1,4 @@
-use std::{fmt::{Debug, Display}, mem};
+use std::{fmt::{Debug, Display}, mem, ops::Index};
 
 #[repr(C)]
 union MaybeUninit<T: Copy> {
@@ -14,6 +14,7 @@ impl<T: Copy> Default for MaybeUninit<T> {
 
 #[repr(C)]
 #[derive(Clone)]
+/// Real-time safe, fixed-size, FFI friendly vector.
 pub struct HeaplessVec<T: Copy, const N: usize> {
     count: usize,
     data: [MaybeUninit<T>; N],
@@ -98,6 +99,18 @@ impl<'a, T: Copy, const N: usize> Iterator for HeaplessVecIter<'a, T, N> {
             Some(item)
         } else {
             None
+        }
+    }
+}
+
+impl<T: Copy, const N: usize> Index<usize> for HeaplessVec<T, N> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        if index < self.count {
+            unsafe { &self.data[index].value }
+        } else {
+            panic!("Index out of bounds");
         }
     }
 }

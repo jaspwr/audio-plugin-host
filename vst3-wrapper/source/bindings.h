@@ -33,12 +33,14 @@ union MaybeUninit {
   T value;
 };
 
+/// Real-time safe, fixed-size, FFI friendly vector.
 template<typename T, uintptr_t N>
 struct HeaplessVec {
   uintptr_t count;
   MaybeUninit<T> data[N];
 };
 
+/// Input and output configuration for the plugin.
 struct IOConfigutaion {
   HeaplessVec<AudioBusDescriptor, 16> audio_inputs;
   HeaplessVec<AudioBusDescriptor, 16> audio_outputs;
@@ -67,14 +69,12 @@ struct ProcessDetails {
   double nanos;
 };
 
-struct NoteEvent {
-  bool on;
-  int note;
-  float velocity;
-  float tuning;
-  int channel;
-  int samples_offset;
-  float time_beats;
+using Samples = uintptr_t;
+
+struct MidiEvent {
+  Samples note_length;
+  uint8_t midi_data[3];
+  float detune;
 };
 
 struct ParameterUpdate {
@@ -86,6 +86,37 @@ struct ParameterUpdate {
   float initial_value;
   ///  If `true`, the user has just released the control and this is the final value.
   bool end_edit;
+};
+
+struct HostIssuedEventType {
+  enum class Tag {
+    Midi,
+    Parameter,
+  };
+
+  struct Midi_Body {
+    MidiEvent _0;
+  };
+
+  struct Parameter_Body {
+    ParameterUpdate _0;
+  };
+
+  Tag tag;
+  union {
+    Midi_Body midi;
+    Parameter_Body parameter;
+  };
+};
+
+/// Events sent to the plugin from the host. Can be passed into the `process` function or queued
+/// for the next process call with `queue_event`.
+struct HostIssuedEvent {
+  HostIssuedEventType event_type;
+  /// Time in samples from start of next block.
+  Samples block_time;
+  PpqTime ppq_time;
+  uintptr_t bus_index;
 };
 
 struct ParameterFFI {
@@ -142,13 +173,11 @@ extern FFIPluginDescriptor descriptor(const void *app);
 extern IOConfigutaion io_config(const void *app);
 
 extern void process(const void *app,
-                    ProcessDetails data,
-                    float **input,
-                    float **output,
-                    int32_t note_events_count,
-                    const NoteEvent *note_events,
-                    int32_t *parameter_change_count,
-                    ParameterUpdate *parameter_changes);
+                    const ProcessDetails *data,
+                    float ***input,
+                    float ***output,
+                    HostIssuedEvent *events,
+                    int32_t events_len);
 
 extern void set_param_in_edit_controller(const void *app, int32_t id, float value);
 
@@ -159,6 +188,8 @@ extern const void *get_data(const void *app, int32_t *data_len, const void **str
 extern void free_data_stream(const void *stream);
 
 extern void set_data(const void *app, const void *data, int32_t data_len);
+
+extern void set_processing(const void *app, bool processing);
 
 extern void free_string(const char *str);
 

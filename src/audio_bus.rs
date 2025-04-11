@@ -3,23 +3,80 @@ use crate::heapless_vec::HeaplessVec;
 pub struct AudioBus<'a, T> {
     pub index: usize,
     pub data: &'a mut Vec<Vec<T>>,
+    owned_data: *mut Vec<Vec<T>>,
 }
 
 impl<'a, T> AudioBus<'a, T> {
     pub fn new(index: usize, data: &'a mut Vec<Vec<T>>) -> Self {
-        AudioBus { index, data }
+        AudioBus {
+            index,
+            data,
+            owned_data: std::ptr::null_mut(),
+        }
+    }
+
+    pub fn channels(&self) -> usize {
+        self.data.len()
     }
 }
 
 #[derive(Clone, Debug)]
 #[repr(C)]
+/// Input and output configuration for the plugin.
 pub struct IOConfigutaion {
     pub audio_inputs: HeaplessVec<AudioBusDescriptor, 16>,
     pub audio_outputs: HeaplessVec<AudioBusDescriptor, 16>,
+}
+
+impl IOConfigutaion {
+    pub fn matches<'a, T>(&self, inputs: &[AudioBus<'a, T>], outputs: &[AudioBus<'a, T>]) -> bool {
+        if self.audio_inputs.len() != inputs.len() || self.audio_outputs.len() != outputs.len() {
+            return false;
+        }
+
+        for i in 0..self.audio_inputs.len() {
+            if self.audio_inputs[i].channels != inputs[i].channels() {
+                return false;
+            }
+        }
+
+        for i in 0..self.audio_outputs.len() {
+            if self.audio_outputs[i].channels != outputs[i].channels() {
+                return false;
+            }
+        }
+
+        true
+    }
 }
 
 #[derive(Clone, Debug, Copy)]
 #[repr(C)]
 pub struct AudioBusDescriptor {
     pub channels: usize,
+}
+
+impl<'a, T> AudioBus<'a, T>
+where
+    T: Default + Clone,
+{
+    pub fn new_alloced(index: usize, block_size: usize, channels: usize) -> Self {
+        let buffer = vec![vec![T::default(); block_size]; channels];
+        let ptr = Box::into_raw(Box::new(buffer));
+        AudioBus {
+            index,
+            data: unsafe { &mut *ptr },
+            owned_data: ptr,
+        }
+    }
+}
+
+impl<'a, T> Drop for AudioBus<'a, T> {
+    fn drop(&mut self) {
+        if !self.owned_data.is_null() {
+            unsafe {
+                drop(Box::from_raw(self.owned_data));
+            }
+        }
+    }
 }

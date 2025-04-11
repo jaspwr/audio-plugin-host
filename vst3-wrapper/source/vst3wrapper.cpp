@@ -4,6 +4,9 @@
 #include <iostream>
 #include <vector>
 
+using namespace Steinberg;
+using namespace Steinberg::Vst;
+
 const char *alloc_string(const char *str) {
   if (str == nullptr) {
     return nullptr;
@@ -74,7 +77,7 @@ public:
   }
 
   Steinberg::tresult beginEdit(Steinberg::Vst::ParamID id) override {
-    printf("beginEdit called (%d)\n", id);
+    // TODO
     return Steinberg::kResultOk;
   }
 
@@ -82,7 +85,7 @@ public:
   performEdit(Steinberg::Vst::ParamID id,
               Steinberg::Vst::ParamValue valueNormalized) override {
     if (!param_edits || !param_edits_mutex) {
-      std::cout << "Did not have something" << std::endl;
+      std::cout << "Param editing state was no initilaized" << std::endl;
       return Steinberg::kResultFalse;
     }
 
@@ -160,18 +163,13 @@ Steinberg::Vst::HostApplication *PluginInstance::_standardPluginContext =
     nullptr;
 int PluginInstance::_standardPluginContextRefCount = 0;
 
-using namespace Steinberg;
-using namespace Steinberg::Vst;
-
 PluginInstance::PluginInstance() {}
 
 PluginInstance::~PluginInstance() { destroy(); }
 
 const int MAX_BLOCK_SIZE = 4096 * 2;
 
-bool PluginInstance::init(const std::string &path, int sampleRate,
-                          int maxBlockSize, int symbolicSampleSize,
-                          bool realtime) {
+bool PluginInstance::init(const std::string &path) {
   _destroy(false);
 
   ++_standardPluginContextRefCount;
@@ -179,8 +177,6 @@ bool PluginInstance::init(const std::string &path, int sampleRate,
     _standardPluginContext = owned(NEW HostApplication());
     PluginContextFactory::instance().setPluginContext(_standardPluginContext);
   }
-
-  _path = path;
 
   _processSetup.symbolicSampleSize = 0;
   _processSetup.sampleRate = 44100;
@@ -199,247 +195,102 @@ bool PluginInstance::init(const std::string &path, int sampleRate,
   VST3::Hosting::PluginFactory factory = _module->getFactory();
   for (auto &classInfo : factory.classInfos()) {
     if (classInfo.category() == kVstAudioEffectClass) {
-      _plugProvider = owned(NEW PlugProvider(factory, classInfo, true));
-      if (!_plugProvider) {
-        printf("No PlugProvider found");
-        return false;
-      }
-
-      _vstPlug = _plugProvider->getComponent();
-
-      _audioEffect = FUnknownPtr<IAudioProcessor>(_vstPlug);
-      if (!_audioEffect) {
-        printf("Could not get audio processor from VST");
-        return false;
-      }
-
-      _editController = _plugProvider->getController();
-      if (_editController->initialize(_standardPluginContext) != kResultOk) {
-        std::cout << "Failed to initialize editor context" << std::endl;
-      }
-
-      param_edits = {};
-
-      component_handler = new ComponentHandler(&param_edits, &param_edits_mutex,
-                                               plugin_sent_events_producer);
-      _editController->setComponentHandler(
-          (ComponentHandler *)component_handler);
-
-      Vst::IConnectionPoint *iConnectionPointComponent = nullptr;
-      Vst::IConnectionPoint *iConnectionPointController = nullptr;
-
-      _audioEffect->queryInterface(Vst::IConnectionPoint::iid,
-                                   (void **)&iConnectionPointComponent);
-      _editController->queryInterface(Vst::IConnectionPoint::iid,
-                                      (void **)&iConnectionPointController);
-
-      if (iConnectionPointComponent && iConnectionPointController) {
-        iConnectionPointComponent->connect(iConnectionPointController);
-        iConnectionPointController->connect(iConnectionPointComponent);
-      } else {
-        std::cout << "Failed to get connection points." << std::endl;
-      }
-
-      auto stream = ResizableMemoryIBStream();
-
-      if (_vstPlug->getState(&stream) == kResultTrue) {
-        stream.rewind();
-        _editController->setComponentState(&stream);
-      }
-
-      name = classInfo.name();
-      vendor = classInfo.vendor();
-      version = classInfo.version();
-      id = classInfo.ID().toString();
-
-      FUnknownPtr<IProcessContextRequirements> contextRequirements(
-          _audioEffect);
-      if (contextRequirements) {
-        auto flags = contextRequirements->getProcessContextRequirements();
-
-#define PRINT_FLAG(x)                                                          \
-  if (flags & IProcessContextRequirements::Flags::x) {                         \
-    printf(#x);                                                                \
-  }
-        PRINT_FLAG(kNeedSystemTime)
-        PRINT_FLAG(kNeedContinousTimeSamples)
-        PRINT_FLAG(kNeedProjectTimeMusic)
-        PRINT_FLAG(kNeedBarPositionMusic)
-        PRINT_FLAG(kNeedCycleMusic)
-        PRINT_FLAG(kNeedSamplesToNextClock)
-        PRINT_FLAG(kNeedTempo)
-        PRINT_FLAG(kNeedTimeSignature)
-        PRINT_FLAG(kNeedChord)
-        PRINT_FLAG(kNeedFrameRate)
-        PRINT_FLAG(kNeedTransportState)
-#undef PRINT_FLAG
-      }
-
-      _numInAudioBuses =
-          _vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kInput);
-      _numOutAudioBuses =
-          _vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kOutput);
-      _numInEventBuses =
-          _vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kInput);
-      _numOutEventBuses =
-          _vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kOutput);
-
-      std::cout << "Buses: " << _numInAudioBuses << " audio and "
-                << _numInEventBuses << " event inputs; " << std::endl;
-      std::cout << _numOutAudioBuses << " audio and " << _numOutEventBuses
-                << " event outputs" << std::endl;
-
-      for (int i = 0; i < _numInAudioBuses; ++i) {
-        BusInfo info;
-        _vstPlug->getBusInfo(kAudio, kInput, i, info);
-        _inAudioBusInfos.push_back(info);
-        setBusActive(kAudio, kInput, i, false);
-
-        SpeakerArrangement speakerArr;
-        _audioEffect->getBusArrangement(kInput, i, speakerArr);
-        _inSpeakerArrs.push_back(speakerArr);
-      }
-
-      for (int i = 0; i < _numInEventBuses; ++i) {
-        BusInfo info;
-        _vstPlug->getBusInfo(kEvent, kInput, i, info);
-        _inEventBusInfos.push_back(info);
-        setBusActive(kEvent, kInput, i, false);
-      }
-
-      for (int i = 0; i < _numOutAudioBuses; ++i) {
-        BusInfo info;
-        _vstPlug->getBusInfo(kAudio, kOutput, i, info);
-        _outAudioBusInfos.push_back(info);
-        setBusActive(kAudio, kOutput, i, false);
-
-        SpeakerArrangement speakerArr;
-        _audioEffect->getBusArrangement(kOutput, i, speakerArr);
-        _outSpeakerArrs.push_back(speakerArr);
-      }
-
-      for (int i = 0; i < _numOutEventBuses; ++i) {
-        BusInfo info;
-        _vstPlug->getBusInfo(kEvent, kOutput, i, info);
-        _outEventBusInfos.push_back(info);
-        setBusActive(kEvent, kOutput, i, false);
-      }
-
-      tresult res = _audioEffect->setBusArrangements(
-          _inSpeakerArrs.data(), _numInAudioBuses, _outSpeakerArrs.data(),
-          _numOutAudioBuses);
-      if (res != kResultTrue) {
-        printf("Failed to set bus arrangements");
-        return false;
-      }
-
-      res = _audioEffect->setupProcessing(_processSetup);
-      if (res == kResultOk) {
-        _processData.prepare(*_vstPlug, MAX_BLOCK_SIZE,
-                             _processSetup.symbolicSampleSize);
-        if (_numInEventBuses > 0) {
-          _processData.inputEvents = new EventList[_numInEventBuses];
-        }
-        if (_numOutEventBuses > 0) {
-          _processData.outputEvents = new EventList[_numOutEventBuses];
-        }
-      } else {
-        printf("Failed to setup VST processing");
-        return false;
-      }
-
-      if (_vstPlug->setActive(true) != kResultTrue) {
-        printf("Failed to activate VST component");
-        return false;
-      }
+      return this->load_plugin_from_class(factory, classInfo);
     }
   }
 
   return true;
 }
 
+bool PluginInstance::load_plugin_from_class(
+    VST3::Hosting::PluginFactory &factory,
+    VST3::Hosting::ClassInfo &classInfo) {
+  _plugProvider = owned(NEW PlugProvider(factory, classInfo, true));
+  if (!_plugProvider) {
+    printf("No PlugProvider found");
+    return false;
+  }
+
+  _vstPlug = _plugProvider->getComponent();
+
+  _audioEffect = FUnknownPtr<IAudioProcessor>(_vstPlug);
+  if (!_audioEffect) {
+    printf("Could not get audio processor from VST");
+    return false;
+  }
+
+  _editController = _plugProvider->getController();
+  if (_editController->initialize(_standardPluginContext) != kResultOk) {
+    std::cout << "Failed to initialize editor context" << std::endl;
+  }
+
+  param_edits = {};
+
+  component_handler = new ComponentHandler(&param_edits, &param_edits_mutex,
+                                           plugin_sent_events_producer);
+  _editController->setComponentHandler((ComponentHandler *)component_handler);
+
+  Vst::IConnectionPoint *iConnectionPointComponent = nullptr;
+  Vst::IConnectionPoint *iConnectionPointController = nullptr;
+
+  _audioEffect->queryInterface(Vst::IConnectionPoint::iid,
+                               (void **)&iConnectionPointComponent);
+  _editController->queryInterface(Vst::IConnectionPoint::iid,
+                                  (void **)&iConnectionPointController);
+
+  if (iConnectionPointComponent && iConnectionPointController) {
+    iConnectionPointComponent->connect(iConnectionPointController);
+    iConnectionPointController->connect(iConnectionPointComponent);
+  } else {
+    std::cout << "Failed to get connection points." << std::endl;
+  }
+
+  auto stream = ResizableMemoryIBStream();
+
+  if (_vstPlug->getState(&stream) == kResultTrue) {
+    stream.rewind();
+    _editController->setComponentState(&stream);
+  }
+
+  name = classInfo.name();
+  vendor = classInfo.vendor();
+  version = classInfo.version();
+  id = classInfo.ID().toString();
+
+  // TODO: Set bus arrangement
+
+  tresult res = _audioEffect->setupProcessing(_processSetup);
+  if (res == kResultOk) {
+    _processData.prepare(*_vstPlug, MAX_BLOCK_SIZE,
+                         _processSetup.symbolicSampleSize);
+    if (_numInEventBuses > 0) {
+      _processData.inputEvents = new EventList[_numInEventBuses];
+    }
+    if (_numOutEventBuses > 0) {
+      _processData.outputEvents = new EventList[_numOutEventBuses];
+    }
+  } else {
+    printf("Failed to setup VST processing");
+  }
+
+  if (_vstPlug->setActive(true) != kResultTrue) {
+    printf("Failed to activate VST component");
+  }
+
+  get_io_config();
+
+  return true;
+}
+
 void PluginInstance::destroy() { _destroy(true); }
 
-const Steinberg::Vst::BusInfo *
-PluginInstance::busInfo(Steinberg::Vst::MediaType type,
-                        Steinberg::Vst::BusDirection direction, int which) {
-  if (type == kAudio) {
-    if (direction == kInput) {
-      return &_inAudioBusInfos[which];
-    } else if (direction == kOutput) {
-      return &_outAudioBusInfos[which];
-    } else {
-      return nullptr;
-    }
-  } else if (type == kEvent) {
-    if (direction == kInput) {
-      return &_inEventBusInfos[which];
-    } else if (direction == kOutput) {
-      return &_outEventBusInfos[which];
-    } else {
-      return nullptr;
-    }
-  } else {
-    return nullptr;
-  }
-}
-
-int PluginInstance::numBuses(Steinberg::Vst::MediaType type,
-                             Steinberg::Vst::BusDirection direction) {
-  if (type == kAudio) {
-    if (direction == kInput) {
-      return _numInAudioBuses;
-    } else if (direction == kOutput) {
-      return _numOutAudioBuses;
-    } else {
-      return 0;
-    }
-  } else if (type == kEvent) {
-    if (direction == kInput) {
-      return _numInEventBuses;
-    } else if (direction == kOutput) {
-      return _numOutEventBuses;
-    } else {
-      return 0;
-    }
-  } else {
-    return 0;
-  }
-}
-
-void PluginInstance::setBusActive(MediaType type, BusDirection direction,
-                                  int which, bool active) {
-  _vstPlug->activateBus(type, direction, which, active);
-}
-
-void PluginInstance::setProcessing(bool processing) {
-  _audioEffect->setProcessing(processing);
+void set_processing(const void *app, bool processing) {
+  PluginInstance *vst = (PluginInstance *)app;
+  vst->_audioEffect->setProcessing(processing);
 }
 
 Steinberg::Vst::ProcessContext *PluginInstance::processContext() {
   return &_processContext;
-}
-
-Steinberg::Vst::Sample32 *
-PluginInstance::channelBuffer32(BusDirection direction, int which) {
-  if (direction == kInput) {
-    return _processData.inputs->channelBuffers32[which];
-  } else if (direction == kOutput) {
-    return _processData.outputs->channelBuffers32[which];
-  } else {
-    return nullptr;
-  }
-}
-
-Steinberg::Vst::Sample64 *
-PluginInstance::channelBuffer64(BusDirection direction, int which) {
-  if (direction == kInput) {
-    return _processData.inputs->channelBuffers64[which];
-  } else if (direction == kOutput) {
-    return _processData.outputs->channelBuffers64[which];
-  } else {
-    return nullptr;
-  }
 }
 
 Steinberg::Vst::EventList *
@@ -516,6 +367,40 @@ Dims PluginInstance::createView(void *window_id) {
   };
 }
 
+IOConfigutaion PluginInstance::get_io_config() {
+  IOConfigutaion io_config = {};
+  io_config.audio_inputs = {};
+  io_config.audio_outputs = {};
+
+  auto audio_inputs =
+      _vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kInput);
+  auto audio_outputs =
+      _vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kOutput);
+
+  for (int i = 0; i < audio_inputs; i++) {
+    BusInfo info;
+    _vstPlug->getBusInfo(MediaTypes::kAudio, BusDirections::kInput, i, info);
+    io_config.audio_inputs.count++;
+    io_config.audio_inputs.data[i] = {};
+    io_config.audio_inputs.data[i].value.channels = info.channelCount;
+  }
+
+  for (int i = 0; i < audio_outputs; i++) {
+    BusInfo info;
+    _vstPlug->getBusInfo(MediaTypes::kAudio, BusDirections::kOutput, i, info);
+    io_config.audio_outputs.count++;
+    io_config.audio_outputs.data[i] = {};
+    io_config.audio_outputs.data[i].value.channels = info.channelCount;
+  }
+
+  // vst->_vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kInput);
+  // vst->_vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kOutput);
+
+  _io_config = io_config;
+
+  return io_config;
+}
+
 void PluginInstance::_destroy(bool decrementRefCount) {
   // destroyView();
   _editController = nullptr;
@@ -550,7 +435,6 @@ void PluginInstance::_destroy(bool decrementRefCount) {
   _processSetup = {};
   _processContext = {};
 
-  _path = "";
   name = "";
 
   if (decrementRefCount) {
@@ -570,18 +454,27 @@ const void *load_plugin(const char *s,
                         const void *plugin_sent_events_producer) {
   PluginInstance *vst = new PluginInstance();
   vst->plugin_sent_events_producer = plugin_sent_events_producer;
-  vst->init(s, 44100, 2048, kSample32, true);
+  vst->init(s);
 
-  if (vst->numBuses(kAudio, kInput) > 0)
-    vst->setBusActive(kAudio, kInput, 0, true);
+  auto aud_in = vst->_vstPlug->getBusCount(kAudio, kInput);
+  for (int i = 0; i < aud_in; i++) {
+    vst->_vstPlug->activateBus(kAudio, kInput, i, true);
+  }
 
-  if (vst->numBuses(kAudio, kOutput) > 0)
-    vst->setBusActive(kAudio, kOutput, 0, true);
+  auto aud_out = vst->_vstPlug->getBusCount(kAudio, kOutput);
+  for (int i = 0; i < aud_out; i++) {
+    vst->_vstPlug->activateBus(kAudio, kOutput, i, true);
+  }
 
-  if (vst->numBuses(kEvent, kInput) > 0)
-    vst->setBusActive(kEvent, kInput, 0, true);
+  auto evt_in = vst->_vstPlug->getBusCount(kEvent, kInput);
+  for (int i = 0; i < evt_in; i++) {
+    vst->_vstPlug->activateBus(kEvent, kInput, i, true);
+  }
 
-  vst->setProcessing(true);
+  // NOTE: Output event buses are not supported yet so they are not activated
+
+  vst->_audioEffect->setProcessing(true);
+
   return vst;
 }
 
@@ -654,64 +547,73 @@ void set_data(const void *app, const void *data, int32_t data_len) {
   vst->_editController->setComponentState(&stream);
 }
 
-void process(const void *app, ProcessDetails data, float **input,
-             float **output, int32_t note_events_count,
-             const NoteEvent *note_events, int32_t *parameter_change_count,
-             ParameterUpdate *parameter_changes) {
+void process(const void *app, const ProcessDetails *data, float ***input,
+             float ***output, HostIssuedEvent *events, int32_t events_len) {
   PluginInstance *vst = (PluginInstance *)app;
 
-  if (vst->numBuses(kAudio, kOutput) > 0) {
-    vst->_processData.outputs->channelBuffers32 = output;
+  auto audio_inputs = vst->_io_config.audio_inputs.count;
+  auto audio_outputs = vst->_io_config.audio_outputs.count;
+
+  for (int i = 0; i < audio_inputs; i++) {
+    vst->_processData.inputs->channelBuffers32 = input[i];
   }
-  if (vst->numBuses(kAudio, kInput) > 0) {
-    vst->_processData.inputs->channelBuffers32 = input;
+
+  for (int i = 0; i < audio_outputs; i++) {
+    vst->_processData.outputs[i].channelBuffers32 = output[i];
   }
+
+  // if (vst->numBuses(kAudio, kOutput) > 0) {
+  //   vst->_processData.outputs->channelBuffers32 = output;
+  // }
+  // if (vst->numBuses(kAudio, kInput) > 0) {
+  //   vst->_processData.inputs->channelBuffers32 = input;
+  // }
 
   Steinberg::uint32 state = 0;
 
   Steinberg::Vst::ProcessContext *ctx = vst->_processData.processContext;
 
-  vst->_processData.processContext->tempo = data.tempo;
+  vst->_processData.processContext->tempo = data->tempo;
   state |= ctx->kTempoValid;
 
   vst->_processData.processContext->timeSigNumerator =
-      data.time_signature_numerator;
+      data->time_signature_numerator;
   vst->_processData.processContext->timeSigDenominator =
-      data.time_signature_denominator;
+      data->time_signature_denominator;
   state |= ctx->kTimeSigValid;
 
-  vst->_processData.processContext->projectTimeMusic = data.player_time;
+  vst->_processData.processContext->projectTimeMusic = data->player_time;
 
   vst->_processData.processContext->projectTimeSamples =
-      (data.player_time / (data.tempo / 60.0)) * data.sample_rate;
+      (data->player_time / (data->tempo / 60.0)) * data->sample_rate;
 
   // TODO
   // vst->_processData.processContext->barPositionMusic = data.barPosBeats;
   state |= ctx->kBarPositionValid;
 
-  vst->_processData.processContext->cycleStartMusic = data.cycle_start;
-  vst->_processData.processContext->cycleEndMusic = data.cycle_end;
+  vst->_processData.processContext->cycleStartMusic = data->cycle_start;
+  vst->_processData.processContext->cycleEndMusic = data->cycle_end;
   state |= ctx->kCycleValid;
 
-  vst->_processData.processContext->systemTime = data.nanos;
+  vst->_processData.processContext->systemTime = data->nanos;
   state |= ctx->kSystemTimeValid;
 
   vst->_processData.processContext->frameRate.framesPerSecond = 60.;
   vst->_processData.processContext->frameRate.flags = 0;
 
-  if (data.cycle_enabled) {
+  if (data->cycle_enabled) {
     state |= ctx->kCycleActive;
   }
 
-  if (data.playing_state != PlayingState::Stopped) {
+  if (data->playing_state != PlayingState::Stopped) {
     state |= ctx->kPlaying;
   }
 
-  if (data.playing_state == PlayingState::Recording) {
+  if (data->playing_state == PlayingState::Recording) {
     state |= ctx->kRecording;
   }
 
-  if (data.playing_state == PlayingState::OfflineRendering) {
+  if (data->playing_state == PlayingState::OfflineRendering) {
     vst->_processData.processMode = kOffline;
   } else {
     vst->_processData.processMode = kRealtime;
@@ -719,81 +621,84 @@ void process(const void *app, ProcessDetails data, float **input,
 
   vst->_processData.processContext->state = state;
 
-  int midi_bus = 0;
-  Steinberg::Vst::EventList *eventList = nullptr;
-  if (vst->numBuses(kEvent, kInput) > 0) {
-    eventList = vst->eventList(Steinberg::Vst::kInput, midi_bus);
-    for (int i = 0; i < note_events_count; i++) {
-      NoteEvent note = note_events[i];
-
-      Steinberg::Vst::Event evt = {};
-      evt.busIndex = midi_bus;
-      evt.sampleOffset = note.samples_offset;
-      evt.ppqPosition = note.time_beats;
-      // evt.flags = Steinberg::Vst::Event::EventFlags::kIsLive;
-
-      std::cout << note.note << std::endl;
-
-      if (note.on) {
-        evt.type = Steinberg::Vst::Event::EventTypes::kNoteOnEvent;
-        evt.noteOn.channel = note.channel;
-        evt.noteOn.pitch = note.note;
-        evt.noteOn.tuning = note.tuning;
-        evt.noteOn.velocity = note.velocity;
-        evt.noteOn.length = 0;
-        evt.noteOn.noteId = -1;
-      } else {
-        evt.type = Steinberg::Vst::Event::EventTypes::kNoteOffEvent;
-        evt.noteOff.channel = note.channel;
-        evt.noteOff.pitch = note.note;
-        evt.noteOff.tuning = note.tuning;
-        evt.noteOff.velocity = note.velocity;
-        evt.noteOff.noteId = -1;
-      }
-      eventList->addEvent(evt);
-    }
-  }
-
-  if (*parameter_change_count > 0) {
-    if (!vst->_processData.inputParameterChanges) {
-      vst->_processData.inputParameterChanges = new ParameterChanges(400);
-    }
-
-    auto changes = vst->_processData.inputParameterChanges;
-
-    for (int i = 0; i < *parameter_change_count; i++) {
-      int queue_index = 0;
-      auto queue = changes->addParameterData(parameter_changes[i].parameter_id,
-                                             queue_index);
-      auto q = static_cast<ParameterValueQueue *>(queue);
-      q->clear();
-      int point_index = 0;
-      if (queue->addPoint(0, parameter_changes[i].current_value, point_index) !=
-          kResultOk) {
-        std::cout << "Failed to set parameter" << std::endl;
-      }
-      std::cout << parameter_changes[i].parameter_id << " <- "
-                << parameter_changes[i].current_value << std::endl;
-    }
-  }
+  // int midi_bus = 0;
+  // Steinberg::Vst::EventList *eventList = nullptr;
+  // // if (vst->numBuses(kEvent, kInput) > 0) {
+  // if (false) {
+  //   eventList = vst->eventList(Steinberg::Vst::kInput, midi_bus);
+  //   for (int i = 0; i < note_events_count; i++) {
+  //     NoteEvent note = note_events[i];
+  //
+  //     Steinberg::Vst::Event evt = {};
+  //     evt.busIndex = midi_bus;
+  //     evt.sampleOffset = note.samples_offset;
+  //     evt.ppqPosition = note.time_beats;
+  //     // evt.flags = Steinberg::Vst::Event::EventFlags::kIsLive;
+  //
+  //     std::cout << note.note << std::endl;
+  //
+  //     if (note.on) {
+  //       evt.type = Steinberg::Vst::Event::EventTypes::kNoteOnEvent;
+  //       evt.noteOn.channel = note.channel;
+  //       evt.noteOn.pitch = note.note;
+  //       evt.noteOn.tuning = note.tuning;
+  //       evt.noteOn.velocity = note.velocity;
+  //       evt.noteOn.length = 0;
+  //       evt.noteOn.noteId = -1;
+  //     } else {
+  //       evt.type = Steinberg::Vst::Event::EventTypes::kNoteOffEvent;
+  //       evt.noteOff.channel = note.channel;
+  //       evt.noteOff.pitch = note.note;
+  //       evt.noteOff.tuning = note.tuning;
+  //       evt.noteOff.velocity = note.velocity;
+  //       evt.noteOff.noteId = -1;
+  //     }
+  //     eventList->addEvent(evt);
+  //   }
+  // }
+  //
+  // if (*parameter_change_count > 0) {
+  //   if (!vst->_processData.inputParameterChanges) {
+  //     vst->_processData.inputParameterChanges = new ParameterChanges(400);
+  //   }
+  //
+  //   auto changes = vst->_processData.inputParameterChanges;
+  //
+  //   for (int i = 0; i < *parameter_change_count; i++) {
+  //     int queue_index = 0;
+  //     auto queue =
+  //     changes->addParameterData(parameter_changes[i].parameter_id,
+  //                                            queue_index);
+  //     auto q = static_cast<ParameterValueQueue *>(queue);
+  //     q->clear();
+  //     int point_index = 0;
+  //     if (queue->addPoint(0, parameter_changes[i].current_value, point_index)
+  //     !=
+  //         kResultOk) {
+  //       std::cout << "Failed to set parameter" << std::endl;
+  //     }
+  //     std::cout << parameter_changes[i].parameter_id << " <- "
+  //               << parameter_changes[i].current_value << std::endl;
+  //   }
+  // }
 
   tresult result = vst->_audioEffect->process(vst->_processData);
   if (result != kResultOk) {
     std::cout << "Failed to process" << std::endl;
   }
 
-  for (int i = 0; i < *parameter_change_count; i++) {
-    int queue_index = 0;
-    auto changes = vst->_processData.inputParameterChanges;
-    auto queue = changes->addParameterData(parameter_changes[i].parameter_id,
-                                           queue_index);
-    auto q = static_cast<ParameterValueQueue *>(queue);
-    q->clear();
-  }
-
-  if (eventList) {
-    eventList->clear();
-  }
+  // for (int i = 0; i < *parameter_change_count; i++) {
+  //   int queue_index = 0;
+  //   auto changes = vst->_processData.inputParameterChanges;
+  //   auto queue = changes->addParameterData(parameter_changes[i].parameter_id,
+  //                                          queue_index);
+  //   auto q = static_cast<ParameterValueQueue *>(queue);
+  //   q->clear();
+  // }
+  //
+  // if (eventList) {
+  //   eventList->clear();
+  // }
 }
 
 void set_param_in_edit_controller(const void *app, int32_t id, float value) {
@@ -849,39 +754,8 @@ ParameterFFI get_parameter(const void *app, int32_t id) {
   return param;
 }
 
-
 IOConfigutaion io_config(const void *app) {
   PluginInstance *vst = (PluginInstance *)app;
 
-  IOConfigutaion io_config = {};
-  io_config.audio_inputs = {};
-  io_config.audio_outputs = {};
-
-  auto audio_inputs =
-      vst->_vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kInput);
-  auto audio_outputs =
-      vst->_vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kOutput);
-
-  for (int i = 0; i < audio_inputs; i++) {
-    BusInfo info;
-    vst->_vstPlug->getBusInfo(MediaTypes::kAudio, BusDirections::kInput, i,
-                              info);
-    io_config.audio_inputs.count++;
-    io_config.audio_inputs.data[i] = {};
-    io_config.audio_inputs.data[i].value.channels = info.channelCount;
-  }
-
-  for (int i = 0; i < audio_outputs; i++) {
-    BusInfo info;
-    vst->_vstPlug->getBusInfo(MediaTypes::kAudio, BusDirections::kOutput, i,
-                              info);
-    io_config.audio_outputs.count++;
-    io_config.audio_outputs.data[i] = {};
-    io_config.audio_outputs.data[i].value.channels = info.channelCount;
-  }
-
-  // vst->_vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kInput);
-  // vst->_vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kOutput);
-
-  return io_config;
+  return vst->get_io_config();
 }

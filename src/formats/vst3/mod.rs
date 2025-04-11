@@ -12,11 +12,11 @@ use crate::event::HostIssuedEventType;
 use crate::heapless_vec::HeaplessVec;
 use crate::parameter::ParameterUpdate;
 use crate::plugin::PluginInner;
-use crate::Samples;
 use crate::{
     audio_bus::IOConfigutaion,
     event::{HostIssuedEvent, PluginIssuedEvent},
 };
+use crate::{ProcessDetails, Samples};
 
 use super::{Common, Format};
 
@@ -57,11 +57,46 @@ impl PluginInner for Vst3 {
         &mut self,
         inputs: &Vec<crate::audio_bus::AudioBus<f32>>,
         outputs: &mut Vec<crate::audio_bus::AudioBus<f32>>,
-        events: Vec<HostIssuedEvent>,
-        process_details: &crate::ProcessDetails,
+        mut events: Vec<HostIssuedEvent>,
+        process_details: &ProcessDetails,
     ) {
         for update in last_param_updates(&events) {
-            self.param_updates_for_edit_controller.try_push(update);
+            let _ = self.param_updates_for_edit_controller.try_push(update);
+        }
+
+        // TODO: Make real-time safe
+        let mut channel_buffers = vec![];
+
+        let mut input_ptrs: Vec<*mut *mut f32> = Vec::with_capacity(inputs.len());
+        let mut output_ptrs: Vec<*mut *mut f32> = Vec::with_capacity(outputs.len());
+
+        for bus_idx in 0..inputs.len() {
+            let mut channels = vec![];
+            for channel_idx in 0..inputs[bus_idx].data.len() {
+                channels.push(inputs[bus_idx].data[channel_idx].as_ptr() as *mut f32);
+            }
+            channel_buffers.push(channels);
+            input_ptrs.push(channel_buffers.last_mut().unwrap().as_mut_ptr());
+        }
+
+        for bus_idx in 0..outputs.len() {
+            let mut channels = vec![];
+            for channel_idx in 0..outputs[bus_idx].data.len() {
+                channels.push(outputs[bus_idx].data[channel_idx].as_mut_ptr() as *mut f32);
+            }
+            channel_buffers.push(channels);
+            output_ptrs.push(channel_buffers.last_mut().unwrap().as_mut_ptr());
+        }
+
+        unsafe {
+            vst3_wrapper_sys::process(
+                self.app,
+                process_details as *const ProcessDetails,
+                input_ptrs.as_mut_ptr() as *mut *mut *mut f32,
+                output_ptrs.as_mut_ptr() as *mut *mut *mut f32,
+                events.as_mut_ptr(),
+                events.len() as i32,
+            );
         }
     }
 
@@ -119,9 +154,13 @@ impl PluginInner for Vst3 {
         unsafe { vst3_wrapper_sys::hide_gui(self.app) };
     }
 
-    fn suspend(&mut self) {}
+    fn suspend(&mut self) {
+        unsafe { vst3_wrapper_sys::set_processing(self.app, false) };
+    }
 
-    fn resume(&mut self) {}
+    fn resume(&mut self) {
+        unsafe { vst3_wrapper_sys::set_processing(self.app, true) };
+    }
 
     fn get_io_configuration(&self) -> crate::audio_bus::IOConfigutaion {
         unsafe { vst3_wrapper_sys::io_config(self.app) }

@@ -63,6 +63,10 @@ impl PluginInstance {
         events: Vec<HostIssuedEvent>,
         process_details: &ProcessDetails,
     ) {
+        if !self.io_configuration.matches(inputs, outputs) {
+            panic!("Inputs and outputs do not match the plugin's IO configuration");
+        }
+
         self.resume();
 
         self.fix_configuration(process_details);
@@ -82,6 +86,7 @@ impl PluginInstance {
 
             events.push(event);
         }
+
         events
     }
 
@@ -91,8 +96,10 @@ impl PluginInstance {
     }
 
     /// {UI thread}
-    pub fn get_io_configuration(&self) -> IOConfigutaion {
-        self.inner.get_io_configuration()
+    pub fn get_io_configuration(&mut self) -> IOConfigutaion {
+        let io = self.inner.get_io_configuration();
+        self.io_configuration = io.clone();
+        io
     }
 
     pub fn resume(&mut self) {

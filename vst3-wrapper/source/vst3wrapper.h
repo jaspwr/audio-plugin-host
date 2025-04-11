@@ -6,11 +6,11 @@
 #include "public.sdk/source/vst/hosting/module.h"
 #include "public.sdk/source/vst/hosting/plugprovider.h"
 
+#include "memoryibstream.h"
 #include <pluginterfaces/gui/iplugview.h>
 #include <public.sdk/source/vst/hosting/eventlist.h>
 #include <public.sdk/source/vst/hosting/parameterchanges.h>
 #include <public.sdk/source/vst/hosting/processdata.h>
-#include "memoryibstream.h"
 
 #include "bindings.h"
 
@@ -31,31 +31,21 @@ public:
   PluginInstance();
   ~PluginInstance();
 
-  bool init(const std::string &path, int sampleRate, int maxBlockSize,
-            int symbolicSampleSize, bool realtime);
+  bool init(const std::string &path);
   void destroy();
 
+  IOConfigutaion _io_config;
+  IOConfigutaion get_io_config();
+
   Steinberg::Vst::ProcessContext *processContext();
-  void setProcessing(bool processing);
-
-  const Steinberg::Vst::BusInfo *busInfo(Steinberg::Vst::MediaType type,
-                                         Steinberg::Vst::BusDirection direction,
-                                         int which);
-  int numBuses(Steinberg::Vst::MediaType type,
-               Steinberg::Vst::BusDirection direction);
-  void setBusActive(Steinberg::Vst::MediaType type,
-                    Steinberg::Vst::BusDirection direction, int which,
-                    bool active);
-
-  Steinberg::Vst::Sample32 *
-  channelBuffer32(Steinberg::Vst::BusDirection direction, int which);
-  Steinberg::Vst::Sample64 *
-  channelBuffer64(Steinberg::Vst::BusDirection direction, int which);
 
   Steinberg::Vst::EventList *eventList(Steinberg::Vst::BusDirection direction,
                                        int which);
   Steinberg::Vst::ParameterChanges *
   parameterChanges(Steinberg::Vst::BusDirection direction, int which);
+
+  bool load_plugin_from_class(VST3::Hosting::PluginFactory &factory,
+                              VST3::Hosting::ClassInfo &classInfo);
 
   Dims createView(void *window_id);
 
@@ -85,20 +75,17 @@ public:
   Steinberg::Vst::ProcessContext _processContext = {};
 
   Steinberg::IPtr<Steinberg::IPlugView> _view = nullptr;
-  // SDL_Window *_window = nullptr;
 
   std::vector<ParameterEditState> param_edits;
   std::mutex param_edits_mutex;
 
-  std::string _path;
   std::string name;
   std::string vendor;
   std::string version;
   std::string id;
 
-  const void *plugin_sent_events_producer = nullptr; 
+  const void *plugin_sent_events_producer = nullptr;
 
   static Steinberg::Vst::HostApplication *_standardPluginContext;
   static int _standardPluginContextRefCount;
 };
-

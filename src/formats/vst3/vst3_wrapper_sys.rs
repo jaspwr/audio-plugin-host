@@ -4,9 +4,10 @@ use std::{
 };
 
 use ringbuf::{traits::Producer, HeapProd};
+use vst::api::MidiEvent;
 
 use crate::{
-    audio_bus::IOConfigutaion, event::PluginIssuedEvent, formats::{Format, PluginDescriptor}, parameter::{Parameter, ParameterUpdate}, ProcessDetails
+    audio_bus::IOConfigutaion, event::{HostIssuedEvent, HostIssuedEventType, PluginIssuedEvent}, formats::{Format, PluginDescriptor}, parameter::{Parameter, ParameterUpdate}, ProcessDetails
 };
 
 #[link(name = "vst3wrapper", kind = "static")]
@@ -21,13 +22,11 @@ extern "C" {
     pub fn io_config(app: *const c_void) -> IOConfigutaion;
     pub fn process(
         app: *const c_void,
-        data: ProcessDetails,
-        input: *mut *mut f32,
-        output: *mut *mut f32,
-        note_events_count: i32,
-        note_events: *const NoteEvent,
-        parameter_change_count: *mut i32,
-        parameter_changes: *mut ParameterUpdate,
+        data: *const ProcessDetails,
+        input: *mut *mut *mut f32,
+        output: *mut *mut *mut f32,
+        events: *mut HostIssuedEvent,
+        events_len: i32,
     );
     pub fn set_param_in_edit_controller(app: *const c_void, id: i32, value: f32);
     pub fn get_parameter(app: *const c_void, id: i32) -> ParameterFFI;
@@ -39,6 +38,10 @@ extern "C" {
     ) -> *const c_void;
     pub fn free_data_stream(stream: *const c_void);
     pub fn set_data(app: *const c_void, data: *const c_void, data_len: i32);
+    pub fn set_processing(
+        app: *const c_void,
+        processing: bool,
+    );
 
     fn free_string(str: *const c_char);
 }
@@ -84,19 +87,6 @@ impl FFIPluginDescriptor {
 pub struct Dims {
     pub width: std::os::raw::c_int,
     pub height: std::os::raw::c_int,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-#[derive(Debug, Copy, Clone)]
-pub struct NoteEvent {
-    pub on: bool,
-    pub note: std::os::raw::c_int,
-    pub velocity: std::os::raw::c_float,
-    pub tuning: std::os::raw::c_float,
-    pub channel: std::os::raw::c_int,
-    pub samples_offset: std::os::raw::c_int,
-    pub time_beats: std::os::raw::c_float,
 }
 
 #[repr(C)]

@@ -17,7 +17,7 @@ fn main() {
     );
     let plugin_path = std::env::args().nth(1).expect("No plugin path provided");
 
-    let plugin = plugin::load(&PathBuf::from(plugin_path), &host).unwrap();
+    let mut plugin = plugin::load(&PathBuf::from(plugin_path), &host).unwrap();
 
     println!("Loaded plugin: {:?}", plugin.descriptor);
     println!("IO configuration: {:?}", plugin.get_io_configuration());
@@ -73,23 +73,22 @@ impl AudioCallback for SDLAudioDeviceCallback {
 
         // This does not support all IO configurations and is not real-time safe. This is just
         // for demonstration purposes.
-        let channel_setup = self.plugin.lock().unwrap().get_io_configuration();
-        let input_channels = channel_setup
-            .audio_inputs
-            .iter()
-            .map(|bus| bus.channels)
-            .sum::<usize>();
-        let mut input = vec![vec![0.0; self.block_size]; input_channels];
-        let output_channels = channel_setup
-            .audio_outputs
-            .iter()
-            .map(|bus| bus.channels)
-            .sum::<usize>();
-        let mut output = vec![vec![0.0; self.block_size]; output_channels];
-        let mut input_busses = vec![AudioBus::new(0, &mut input)];
-        let mut output_busses = vec![AudioBus::new(0, &mut output)];
-        if channel_setup.audio_inputs.is_empty() {
-            input_busses.clear();
+        let io = self.plugin.lock().unwrap().get_io_configuration();
+        let mut input_buses = vec![];
+        let mut output_buses = vec![];
+        for bus in io.audio_inputs.iter() {
+            input_buses.push(AudioBus::new_alloced(
+                0,
+                self.block_size as usize,
+                bus.channels,
+            ));
+        }
+        for bus in io.audio_outputs.iter() {
+            output_buses.push(AudioBus::new_alloced(
+                0,
+                self.block_size as usize,
+                bus.channels,
+            ));
         }
 
         let process_details = ProcessDetails {
@@ -103,15 +102,17 @@ impl AudioCallback for SDLAudioDeviceCallback {
         };
 
         self.plugin.lock().unwrap().process(
-            &input_busses,
-            &mut output_busses,
+            &input_buses,
+            &mut output_buses,
             vec![],
             &process_details,
         );
 
-        for i in 0..self.block_size {
-            for j in 0..CHANNELS as usize {
-                // out[i * CHANNELS as usize + j] = output[j][i];
+        if let Some(output) = output_buses.get_mut(0) {
+            for i in 0..self.block_size {
+                for j in 0..CHANNELS as usize {
+                    out[i * CHANNELS as usize + j] = output.data[j][i];
+                }
             }
         }
     }
@@ -156,9 +157,7 @@ fn get_window_id(window: &sdl2::video::Window) -> *mut std::ffi::c_void {
     unsafe { sdl2::sys::SDL_GetWindowWMInfo(window.raw(), &mut wm_info) };
 
     unsafe {
-        let win = std::mem::transmute::<_, *mut Win>(
-            &wm_info.info as *const _,
-        );
+        let win = std::mem::transmute::<_, *mut Win>(&wm_info.info as *const _);
         (*win).hwnd as *mut std::ffi::c_void
     }
 }

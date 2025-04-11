@@ -3,6 +3,7 @@ use crate::{parameter::ParameterUpdate, PpqTime, Samples};
 /// Events sent to the plugin from the host. Can be passed into the `process` function or queued
 /// for the next process call with `queue_event`.
 #[derive(Debug, Clone)]
+#[repr(C)]
 pub struct HostIssuedEvent {
     pub event_type: HostIssuedEventType,
     /// Time in samples from start of next block.
@@ -11,6 +12,7 @@ pub struct HostIssuedEvent {
     pub bus_index: usize,
 }
 
+#[repr(C)]
 #[derive(Debug, Clone)]
 pub enum HostIssuedEventType {
     Midi(MidiEvent),
