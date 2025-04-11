@@ -12,6 +12,8 @@ use crate::{
     BlockSize, ProcessDetails, SampleRate, Samples,
 };
 
+/// Loads a plugin of any of the supported formats from the given path and returns a
+/// `PluginInstance`.
 pub fn load(path: &PathBuf, host: &Host) -> Result<PluginInstance, Error> {
     let plugin_issued_events: HeapRb<PluginIssuedEvent> = HeapRb::new(512);
     let (plugin_issued_events_producer, plugin_issued_events_consumer) =
@@ -41,10 +43,10 @@ pub fn load(path: &PathBuf, host: &Host) -> Result<PluginInstance, Error> {
 
 pub struct PluginInstance {
     pub descriptor: PluginDescriptor,
-    pub inner: Box<dyn PluginInner>,
-    pub plugin_issued_events: HeapCons<PluginIssuedEvent>,
-    pub sample_rate: SampleRate,
-    pub block_size: BlockSize,
+    pub(crate) inner: Box<dyn PluginInner>,
+    plugin_issued_events: HeapCons<PluginIssuedEvent>,
+    sample_rate: SampleRate,
+    block_size: BlockSize,
     showing_editor: bool,
     latency: AtomicUsize,
     io_configuration: IOConfigutaion,
@@ -201,7 +203,7 @@ impl PluginInstance {
     }
 }
 
-pub trait PluginInner {
+pub(crate) trait PluginInner {
     fn process(
         &mut self,
         inputs: &Vec<AudioBus<f32>>,

@@ -12,15 +12,15 @@ use crate::{
 
 #[link(name = "vst3wrapper", kind = "static")]
 extern "C" {
-    pub fn load_plugin(
+    pub(super) fn load_plugin(
         s: *const c_char,
         plugin_sent_events_producer: *const c_void,
     ) -> *const c_void;
-    pub fn show_gui(app: *const c_void, window_id: *const c_void) -> Dims;
-    pub fn hide_gui(app: *const c_void);
-    pub fn descriptor(app: *const c_void) -> FFIPluginDescriptor;
-    pub fn io_config(app: *const c_void) -> IOConfigutaion;
-    pub fn process(
+    pub(super) fn show_gui(app: *const c_void, window_id: *const c_void) -> Dims;
+    pub(super) fn hide_gui(app: *const c_void);
+    pub(super) fn descriptor(app: *const c_void) -> FFIPluginDescriptor;
+    pub(super) fn io_config(app: *const c_void) -> IOConfigutaion;
+    pub(super) fn process(
         app: *const c_void,
         data: *const ProcessDetails,
         input: *mut *mut *mut f32,
@@ -28,17 +28,17 @@ extern "C" {
         events: *mut HostIssuedEvent,
         events_len: i32,
     );
-    pub fn set_param_in_edit_controller(app: *const c_void, id: i32, value: f32);
-    pub fn get_parameter(app: *const c_void, id: i32) -> ParameterFFI;
+    pub(super) fn set_param_in_edit_controller(app: *const c_void, id: i32, value: f32);
+    pub(super) fn get_parameter(app: *const c_void, id: i32) -> ParameterFFI;
 
-    pub fn get_data(
+    pub(super) fn get_data(
         app: *const c_void,
         data_len: *mut i32,
         stream: *mut *const c_void,
     ) -> *const c_void;
-    pub fn free_data_stream(stream: *const c_void);
-    pub fn set_data(app: *const c_void, data: *const c_void, data_len: i32);
-    pub fn set_processing(
+    pub(super) fn free_data_stream(stream: *const c_void);
+    pub(super) fn set_data(app: *const c_void, data: *const c_void, data_len: i32);
+    pub(super) fn set_processing(
         app: *const c_void,
         processing: bool,
     );
@@ -84,7 +84,7 @@ impl FFIPluginDescriptor {
 #[repr(C)]
 #[allow(non_snake_case)]
 #[derive(Debug, Copy, Clone)]
-pub struct Dims {
+pub(super) struct Dims {
     pub width: std::os::raw::c_int,
     pub height: std::os::raw::c_int,
 }
@@ -111,7 +111,7 @@ struct ParameterEditState {
 #[repr(C)]
 #[allow(non_snake_case)]
 #[derive(Debug, Copy, Clone)]
-pub struct ParameterFFI {
+pub(super) struct ParameterFFI {
     id: std::os::raw::c_int,
     name: *const std::os::raw::c_char,
     index: std::os::raw::c_int,

@@ -30,7 +30,7 @@ use vst::{
 
 use super::Common;
 
-pub fn load(
+pub(super) fn load(
     path: &Path,
     common: Common,
 ) -> Result<(Box<dyn PluginInner>, PluginDescriptor), Error> {
@@ -87,7 +87,7 @@ pub fn load(
     Ok((Box::new(plugin), descriptor))
 }
 
-pub struct Vst2 {
+pub(super) struct Vst2 {
     process_details: Arc<std::sync::Mutex<ProcessDetails>>,
     parameter_object: Arc<dyn PluginParameters>,
     plugin_instance: PluginInstance,

@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub mod audio_bus;
 pub mod discovery;
 pub mod error;
@@ -5,6 +7,8 @@ pub mod event;
 pub mod host;
 pub mod parameter;
 pub mod plugin;
+
+pub use plugin::load;
 
 mod formats;
 pub mod heapless_vec;
