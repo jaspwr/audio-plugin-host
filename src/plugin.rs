@@ -1,4 +1,4 @@
-use std::{path::Path, sync::atomic::AtomicUsize};
+use std::{any::Any, path::Path, sync::atomic::AtomicUsize};
 
 use ringbuf::{traits::*, HeapCons, HeapRb};
 
@@ -14,7 +14,7 @@ use crate::{
 
 /// Loads a plugin of any of the supported formats from the given path and returns a
 /// `PluginInstance`.
-pub fn load(path: &Path, host: &Host) -> Result<PluginInstance, Error> {
+pub fn load<P: AsRef<Path>>(path: P, host: &Host) -> Result<PluginInstance, Error> {
     let plugin_issued_events: HeapRb<PluginIssuedEvent> = HeapRb::new(512);
     let (plugin_issued_events_producer, plugin_issued_events_consumer) =
         plugin_issued_events.split();
@@ -24,12 +24,13 @@ pub fn load(path: &Path, host: &Host) -> Result<PluginInstance, Error> {
         plugin_issued_events_producer,
     };
 
-    let (inner, descriptor) = crate::formats::load_any(path, common)?;
+    let (inner, descriptor) = crate::formats::load_any(path.as_ref(), common)?;
 
     let io_configuration = inner.get_io_configuration();
 
     Ok(PluginInstance {
         latency: AtomicUsize::new(descriptor.initial_latency),
+        window: Box::new(()),
         descriptor,
         inner,
         plugin_issued_events: plugin_issued_events_consumer,
@@ -43,6 +44,10 @@ pub fn load(path: &Path, host: &Host) -> Result<PluginInstance, Error> {
 
 pub struct PluginInstance {
     pub descriptor: PluginDescriptor,
+    /// `Box` to store a window object for convieneice. This isn't used by this 
+    /// crate at all you can use this however you want. Whatever you put in here 
+    /// will be dropped when the editor is closed.
+    pub window: Box<dyn Any>,
     pub(crate) inner: Box<dyn PluginInner>,
     plugin_issued_events: HeapCons<PluginIssuedEvent>,
     sample_rate: SampleRate,
@@ -167,8 +172,13 @@ impl PluginInstance {
         }
 
         self.inner.hide_editor();
+        self.window = Box::new(());
 
         self.showing_editor = false;
+    }
+
+    pub fn is_showing_editor(&self) -> bool {
+        self.showing_editor        
     }
 
     fn fix_configuration(&mut self, process_details: &ProcessDetails) {

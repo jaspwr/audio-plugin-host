@@ -44,6 +44,7 @@ struct HeaplessVec {
 struct IOConfigutaion {
   HeaplessVec<AudioBusDescriptor, 16> audio_inputs;
   HeaplessVec<AudioBusDescriptor, 16> audio_outputs;
+  int32_t event_inputs_count;
 };
 
 using SampleRate = uintptr_t;

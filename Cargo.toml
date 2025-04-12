@@ -6,8 +6,12 @@ edition = "2021"
 [dependencies]
 goblin = "0.9.3"
 ringbuf = "0.4.8"
+serde = { version = "*", features = ["derive"], optional = true }
 vst = { path = "vendor/vst-rs", features = ["disable_deprecation_warning"] }
 
 [build-dependencies]
 cmake = "0.1"
 cbindgen = "0.28.0"
+
+[features]
+serde = ["dep:serde"]

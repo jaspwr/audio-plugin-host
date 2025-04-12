@@ -1,8 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use crate::Samples;
+use crate::{error::Error, host::Host, load, plugin::PluginInstance, Samples};
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PluginDescriptor {
     pub name: String,
     pub id: String,
@@ -13,10 +17,18 @@ pub struct PluginDescriptor {
     pub initial_latency: Samples,
 }
 
+impl PluginDescriptor {
+    pub fn load(&self, host: &Host) -> Result<PluginInstance, Error> {
+        load(&self.path, host)
+    }
+}
+
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Format {
     Vst2,
     Vst3,
+    Clap,
 }
 
 pub fn scan_directory(_path: PathBuf) -> Vec<PluginDescriptor> {

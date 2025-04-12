@@ -24,6 +24,7 @@ impl<'a, T> AudioBus<'a, T> {
 pub struct IOConfigutaion {
     pub audio_inputs: HeaplessVec<AudioBusDescriptor, 16>,
     pub audio_outputs: HeaplessVec<AudioBusDescriptor, 16>,
+    pub event_inputs_count: i32,
 }
 
 impl IOConfigutaion {

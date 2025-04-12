@@ -314,6 +314,7 @@ impl PluginInner for Vst2 {
         IOConfigutaion {
             audio_inputs: inputs,
             audio_outputs: outputs,
+            event_inputs_count: info.midi_inputs.min(1), // TODO: Look into supporting more channels
         }
     }
 

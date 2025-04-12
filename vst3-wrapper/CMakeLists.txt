@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 project(vst3wrapper)
 
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDDL")
+
 if(DEFINED ENV{VSTSDK_DIR})
     file(TO_CMAKE_PATH $ENV{VSTSDK_DIR} VST_SOURCE_DIR)
 else()
