@@ -69,3 +69,8 @@ loop {
     }
 }
 ```
+
+# Licensing
+You may use this in any project, proprietary or open source but if you 
+vendor it or make modifications, those changes must be made public.
+
