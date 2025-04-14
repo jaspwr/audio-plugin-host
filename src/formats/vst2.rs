@@ -305,19 +305,54 @@ impl PluginInner for Vst2 {
     fn get_io_configuration(&mut self) -> IOConfigutaion {
         let info = self.plugin_instance.get_info();
 
-        let mut inputs = HeaplessVec::new();
-        for i in 0..info.inputs {
-            let input_info = self.plugin_instance.get_input_info(i);
-            append_bus_info_from_arrangment(&mut inputs, input_info.arrangement_type);
-        }
-
-        let mut outputs = HeaplessVec::new();
-        for i in 0..info.inputs {
-            let output_info = self.plugin_instance.get_output_info(i);
-            append_bus_info_from_arrangment(&mut outputs, output_info.arrangement_type);
-        }
-
         let event_inputs_count = info.midi_inputs.min(1); // TODO: Look into supporting more channels
+
+        let mut inputs = HeaplessVec::new();
+        let mut outputs = HeaplessVec::new();
+
+        // TODO: Check these. Lots of plugins don't specify this correctly.
+        // for i in 0..info.inputs {
+        //     let input_info = self.plugin_instance.get_input_info(i);
+        //     append_bus_info_from_arrangment(&mut inputs, input_info.arrangement_type);
+        // }
+        // for i in 0..info.inputs {
+        //     let output_info = self.plugin_instance.get_output_info(i);
+        //     append_bus_info_from_arrangment(&mut outputs, output_info.arrangement_type);
+        // }
+
+        if total_channels(&inputs) != info.inputs as usize
+            || total_channels(&outputs) != info.outputs as usize
+        {
+            // Plugin didn't specify speaker arrangement properly. Just try make a guess. This
+            // works for most plugins.
+
+            outputs.clear();
+            inputs.clear();
+        
+            match info.inputs {
+                0 => {}
+                1 | 2 => {
+                    // Mono or stereo
+                    let _ = inputs.push(AudioBusDescriptor { channels: info.inputs as usize });
+                }
+                _ => {
+                    let _ = inputs.push(AudioBusDescriptor { channels: 2 });
+                    let _ = inputs.push(AudioBusDescriptor { channels: info.inputs as usize - 2 });
+                }
+            }
+            match info.outputs {
+                0 => {}
+                1 | 2 => {
+                    // Mono or stereo
+                    let _ = outputs.push(AudioBusDescriptor { channels: info.outputs as usize });
+                }
+                _ => {
+                    // Stereo with sidechain
+                    let _ = outputs.push(AudioBusDescriptor { channels: 2 });
+                    let _ = outputs.push(AudioBusDescriptor { channels: info.outputs as usize - 2 });
+                }
+            }
+        }
 
         self.plugin_instance.info = info;
 
@@ -337,6 +372,10 @@ impl PluginInner for Vst2 {
     }
 }
 
+fn total_channels<const N: usize>(buses: &HeaplessVec<AudioBusDescriptor, N>) -> usize {
+    buses.iter().map(|b| b.channels).sum()
+}
+
 fn append_bus_info_from_arrangment(
     buses: &mut HeaplessVec<AudioBusDescriptor, 16>,
     arrangement: vst::channels::SpeakerArrangementType,
@@ -348,7 +387,7 @@ fn append_bus_info_from_arrangment(
         }
         vst::channels::SpeakerArrangementType::Stereo(_, channel) => {
             // Assume right will also be present and ignore it
-            if channel == StereoChannel::Left {
+            if channel == StereoChannel::Right {
                 let _ = buses.push(AudioBusDescriptor { channels: 2 });
             }
         }

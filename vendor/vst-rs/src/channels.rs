@@ -86,8 +86,8 @@ impl From<api::ChannelProperties> for ChannelInfo {
             name: String::from_utf8_lossy(&api.name).to_string(),
             short_name: String::from_utf8_lossy(&api.short_name).to_string(),
             active: api::ChannelFlags::from_bits(api.flags)
-                .expect("Invalid bits in channel info")
-                .intersects(api::ChannelFlags::ACTIVE),
+                .map(|bits| bits.intersects(api::ChannelFlags::ACTIVE))
+                .unwrap_or(false),
             arrangement_type: SpeakerArrangementType::from(api),
         }
     }
@@ -299,7 +299,7 @@ impl From<api::ChannelProperties> for SpeakerArrangementType {
         use self::SurroundConfig::*;
         use api::SpeakerArrangementType as Raw;
 
-        let stereo = if api::ChannelFlags::from_bits(api.flags)
+        let stereo = if api::ChannelFlags::from_bits(api.flags & 4)
             .expect("Invalid Channel Flags")
             .intersects(api::ChannelFlags::STEREO)
         {

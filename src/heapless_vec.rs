@@ -98,6 +98,12 @@ impl<T: Copy, const N: usize> HeaplessVec<T, N> {
 
         Some(unsafe { &mut self.data[self.count - 1].value })
     }
+
+    pub fn clear(&mut self) {
+        while !self.is_empty() {
+            self.pop();
+        }
+    }
 }
 
 pub struct HeaplessVecIter<'a, T: Copy, const N: usize> {
