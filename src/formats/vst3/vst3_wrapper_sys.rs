@@ -23,6 +23,7 @@ extern "C" {
     pub(super) fn hide_gui(app: *const c_void);
     pub(super) fn descriptor(app: *const c_void) -> FFIPluginDescriptor;
     pub(super) fn io_config(app: *const c_void) -> IOConfigutaion;
+    pub(super) fn parameter_count(app: *const c_void) -> usize;
     pub(super) fn process(
         app: *const c_void,
         data: *const ProcessDetails,
@@ -99,6 +100,10 @@ pub(super) struct ParameterFFI {
     index: std::os::raw::c_int,
     value: std::os::raw::c_float,
     formatted_value: *const std::os::raw::c_char,
+    hidden: bool,
+    can_automate: bool,
+    is_wrap_around: bool,
+    read_only: bool,
 }
 
 impl ParameterFFI {
@@ -109,6 +114,10 @@ impl ParameterFFI {
             index: self.index,
             value: self.value,
             formatted_value: load_and_free_c_string(self.formatted_value),
+            hidden: self.hidden,
+            can_automate: self.can_automate,
+            is_wrap_around: self.is_wrap_around,
+            read_only: self.read_only,
         }
     }
 }

@@ -159,7 +159,7 @@ impl PluginInner for Vst3 {
         unsafe { vst3_wrapper_sys::set_processing(self.app, true) };
     }
 
-    fn get_io_configuration(&self) -> crate::audio_bus::IOConfigutaion {
+    fn get_io_configuration(&mut self) -> crate::audio_bus::IOConfigutaion {
         unsafe { vst3_wrapper_sys::io_config(self.app) }
     }
 
@@ -179,6 +179,10 @@ impl PluginInner for Vst3 {
                 };
             }
         }
+    }
+
+    fn get_parameter_count(&self) -> usize {
+        unsafe { vst3_wrapper_sys::parameter_count(self.app) }
     }
 }
 

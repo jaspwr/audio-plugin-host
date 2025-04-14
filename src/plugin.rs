@@ -7,6 +7,7 @@ use crate::{
     discovery::PluginDescriptor,
     error::{err, Error},
     event::{HostIssuedEvent, PluginIssuedEvent},
+    heapless_vec::HeaplessVec,
     host::Host,
     parameter::Parameter,
     BlockSize, ProcessDetails, SampleRate, Samples,
@@ -24,7 +25,7 @@ pub fn load<P: AsRef<Path>>(path: P, host: &Host) -> Result<PluginInstance, Erro
         plugin_issued_events_producer,
     };
 
-    let (inner, descriptor) = crate::formats::load_any(path.as_ref(), common)?;
+    let (mut inner, descriptor) = crate::formats::load_any(path.as_ref(), common)?;
 
     let io_configuration = inner.get_io_configuration();
 
@@ -44,8 +45,8 @@ pub fn load<P: AsRef<Path>>(path: P, host: &Host) -> Result<PluginInstance, Erro
 
 pub struct PluginInstance {
     pub descriptor: PluginDescriptor,
-    /// `Box` to store a window object for convieneice. This isn't used by this 
-    /// crate at all you can use this however you want. Whatever you put in here 
+    /// `Box` to store a window object for convieneice. This isn't used by this
+    /// crate at all you can use this however you want. Whatever you put in here
     /// will be dropped when the editor is closed.
     pub window: Box<dyn Any>,
     pub(crate) inner: Box<dyn PluginInner>,
@@ -151,6 +152,17 @@ impl PluginInstance {
         self.inner.get_parameter(id)
     }
 
+    pub fn get_all_parameters(&self) -> Vec<Parameter> {
+        (0..self.inner.get_parameter_count())
+            .map(|i| self.inner.get_parameter_from_index(i as i32))
+            .filter(|p| !p.hidden)
+            .collect()
+    }
+
+    pub fn get_parameter_count(&self) -> usize {
+        self.inner.get_parameter_count()
+    }
+
     pub fn show_editor(
         &mut self,
         window_id: *mut std::ffi::c_void,
@@ -178,7 +190,7 @@ impl PluginInstance {
     }
 
     pub fn is_showing_editor(&self) -> bool {
-        self.showing_editor        
+        self.showing_editor
     }
 
     fn fix_configuration(&mut self, process_details: &ProcessDetails) {
@@ -228,6 +240,10 @@ pub(crate) trait PluginInner {
     fn set_preset(&mut self, id: i32) -> Result<(), String>;
 
     fn get_parameter(&self, id: i32) -> Parameter;
+    /// Only override for formats where the id and index can be different
+    fn get_parameter_from_index(&self, index: i32) -> Parameter {
+        self.get_parameter(index)
+    }
 
     fn show_editor(&mut self, window_id: *mut std::ffi::c_void) -> Result<(usize, usize), Error>;
     fn hide_editor(&mut self);
@@ -237,9 +253,11 @@ pub(crate) trait PluginInner {
     fn suspend(&mut self);
     fn resume(&mut self);
 
-    fn get_io_configuration(&self) -> IOConfigutaion;
+    fn get_io_configuration(&mut self) -> IOConfigutaion;
 
     fn get_latency(&mut self) -> Samples;
 
     fn editor_updates(&mut self) {}
+
+    fn get_parameter_count(&self) -> usize;
 }

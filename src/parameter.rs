@@ -9,6 +9,10 @@ pub struct Parameter {
     pub index: i32,
     pub value: f32,
     pub formatted_value: String,
+    pub hidden: bool,
+    pub can_automate: bool,
+    pub is_wrap_around: bool,
+    pub read_only: bool,
 }
 
 #[derive(Debug, Clone)]

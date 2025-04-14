@@ -259,15 +259,14 @@ bool PluginInstance::load_plugin_from_class(
 
   // TODO: Set bus arrangement
 
-    _numInAudioBuses =
-    _vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kInput);
+  _numInAudioBuses =
+      _vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kInput);
   _numOutAudioBuses =
-    _vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kOutput);
+      _vstPlug->getBusCount(MediaTypes::kAudio, BusDirections::kOutput);
   _numInEventBuses =
-    _vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kInput);
+      _vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kInput);
   _numOutEventBuses =
-    _vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kOutput);
-
+      _vstPlug->getBusCount(MediaTypes::kEvent, BusDirections::kOutput);
 
   for (int i = 0; i < _numInAudioBuses; ++i) {
     BusInfo info;
@@ -306,8 +305,8 @@ bool PluginInstance::load_plugin_from_class(
   }
 
   tresult res = _audioEffect->setBusArrangements(
-    _inSpeakerArrs.data(), _numInAudioBuses, _outSpeakerArrs.data(),
-    _numOutAudioBuses);
+      _inSpeakerArrs.data(), _numInAudioBuses, _outSpeakerArrs.data(),
+      _numOutAudioBuses);
   if (res != kResultTrue) {
     std::cout << "Failed to set bus arrangements" << std::endl;
   }
@@ -532,7 +531,6 @@ const void *load_plugin(const char *s,
 
   // NOTE: Output event buses are not supported yet so they are not activated
 
-
   return vst;
 }
 
@@ -684,14 +682,15 @@ void process(const void *app, const ProcessDetails *data, float ***input,
   if (vst->_io_config.event_inputs_count > 0) {
     eventList = vst->eventList(Steinberg::Vst::kInput, midi_bus);
     for (int i = 0; i < events_len; i++) {
-      if (events[i].event_type.tag != HostIssuedEventType::Tag::Midi) continue;
-  
+      if (events[i].event_type.tag != HostIssuedEventType::Tag::Midi)
+        continue;
+
       Steinberg::Vst::Event evt = {};
       evt.busIndex = midi_bus;
       evt.sampleOffset = events[i].block_time;
       evt.ppqPosition = events[i].ppq_time;
       // evt.flags = Steinberg::Vst::Event::EventFlags::kIsLive;
-  
+
       bool is_note_on = events[i].event_type.midi._0.midi_data[0] == 0x90;
       bool is_note_off = events[i].event_type.midi._0.midi_data[0] == 0x80;
 
@@ -716,18 +715,19 @@ void process(const void *app, const ProcessDetails *data, float ***input,
   }
 
   for (int i = 0; i < events_len; i++) {
-    if (events[i].event_type.tag != HostIssuedEventType::Tag::Parameter) continue;
+    if (events[i].event_type.tag != HostIssuedEventType::Tag::Parameter)
+      continue;
 
     if (!vst->_processData.inputParameterChanges) {
       vst->_processData.inputParameterChanges = new ParameterChanges(400);
     }
-  
+
     auto changes = vst->_processData.inputParameterChanges;
 
     auto time = events[i].block_time;
     auto id = events[i].event_type.parameter._0.parameter_id;
     auto value = events[i].event_type.parameter._0.current_value;
-  
+
     int queue_index = 0;
     auto queue = changes->addParameterData(id, queue_index);
 
@@ -799,6 +799,10 @@ ParameterFFI get_parameter(const void *app, int32_t id) {
   param.value = (float)value;
   param.name = alloc_string(name.c_str());
   param.formatted_value = alloc_string(formatted_value_c_str.c_str());
+  param.is_wrap_around = (param_info.flags & ParameterInfo::kIsWrapAround) != 0;
+  param.hidden = (param_info.flags & ParameterInfo::kIsHidden) != 0;
+  param.can_automate = (param_info.flags & ParameterInfo::kCanAutomate) != 0;
+  param.read_only = (param_info.flags & ParameterInfo::kIsReadOnly) != 0;
 
   return param;
 }
@@ -808,3 +812,8 @@ IOConfigutaion io_config(const void *app) {
 
   return vst->get_io_config();
 }
+
+uintptr_t parameter_count(const void *app) {
+  auto vst = (PluginInstance *)app;
+  return vst->_editController->getParameterCount();
+};

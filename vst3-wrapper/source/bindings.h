@@ -126,6 +126,10 @@ struct ParameterFFI {
   int index;
   float value;
   const char *formatted_value;
+  bool hidden;
+  bool can_automate;
+  bool is_wrap_around;
+  bool read_only;
 };
 
 /// Events sent to the host from the plugin. Queued in the plugin and the consumed from the `get_events` function.
@@ -172,6 +176,8 @@ extern void hide_gui(const void *app);
 extern FFIPluginDescriptor descriptor(const void *app);
 
 extern IOConfigutaion io_config(const void *app);
+
+extern uintptr_t parameter_count(const void *app);
 
 extern void process(const void *app,
                     const ProcessDetails *data,

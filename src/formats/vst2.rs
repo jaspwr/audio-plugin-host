@@ -282,6 +282,7 @@ impl PluginInner for Vst2 {
         let formatted_value = format!("{} {}", text.trim(), label.trim())
             .trim()
             .to_string();
+        let can_automate = self.parameter_object.can_be_automated(id);
 
         Parameter {
             id,
@@ -289,10 +290,14 @@ impl PluginInner for Vst2 {
             index: id,
             value,
             formatted_value,
+            hidden: false,
+            can_automate,
+            is_wrap_around: false,
+            read_only: false,
         }
     }
 
-    fn get_io_configuration(&self) -> IOConfigutaion {
+    fn get_io_configuration(&mut self) -> IOConfigutaion {
         let info = self.plugin_instance.get_info();
 
         let mut inputs = HeaplessVec::new();
@@ -311,15 +316,23 @@ impl PluginInner for Vst2 {
             });
         }
 
+        let event_inputs_count = info.midi_inputs.min(1); // TODO: Look into supporting more channels
+        //
+        self.plugin_instance.info = info;
+
         IOConfigutaion {
             audio_inputs: inputs,
             audio_outputs: outputs,
-            event_inputs_count: info.midi_inputs.min(1), // TODO: Look into supporting more channels
+            event_inputs_count,
         }
     }
 
     fn get_latency(&mut self) -> usize {
         self.plugin_instance.initial_delay() as usize
+    }
+
+    fn get_parameter_count(&self) -> usize {
+        self.plugin_instance.info.parameters as usize
     }
 }
 
