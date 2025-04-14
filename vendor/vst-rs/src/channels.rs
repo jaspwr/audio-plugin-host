@@ -6,11 +6,12 @@ use crate::api::consts::{MAX_LABEL, MAX_SHORT_LABEL};
 
 /// Information about an input / output channel. This isn't necessary for a channel to function but
 /// informs the host how the channel is meant to be used.
+#[derive(Debug)]
 pub struct ChannelInfo {
-    name: String,
-    short_name: String,
-    active: bool,
-    arrangement_type: SpeakerArrangementType,
+    pub name: String,
+    pub short_name: String,
+    pub active: bool,
+    pub arrangement_type: SpeakerArrangementType,
 }
 
 impl ChannelInfo {
@@ -94,6 +95,7 @@ impl From<api::ChannelProperties> for ChannelInfo {
 
 /// Target for Speaker arrangement type. Can be a cinema configuration or music configuration. Both
 /// are technically identical but this provides extra information to the host.
+#[derive(Debug)]
 pub enum ArrangementTarget {
     /// Music arrangement. Technically identical to Cinema.
     Music,
@@ -102,6 +104,7 @@ pub enum ArrangementTarget {
 }
 
 /// An enum for all channels in a stereo configuration.
+#[derive(Debug, PartialEq)]
 pub enum StereoChannel {
     /// Left channel.
     Left,
@@ -111,6 +114,7 @@ pub enum StereoChannel {
 
 /// Possible stereo speaker configurations.
 #[allow(non_camel_case_types)]
+#[derive(Debug)]
 pub enum StereoConfig {
     /// Regular.
     L_R,
@@ -126,6 +130,7 @@ pub enum StereoConfig {
 
 /// Possible surround speaker configurations.
 #[allow(non_camel_case_types)]
+#[derive(Debug)]
 pub enum SurroundConfig {
     /// 3.0 surround sound.
     /// Cinema: L R C
@@ -179,6 +184,7 @@ pub enum SurroundConfig {
 }
 
 /// Type representing how a channel is used. Only useful for some hosts.
+#[derive(Debug)]
 pub enum SpeakerArrangementType {
     /// Custom arrangement not specified to host.
     Custom,

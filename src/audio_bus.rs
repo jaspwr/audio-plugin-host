@@ -1,4 +1,4 @@
-use crate::heapless_vec::HeaplessVec;
+use crate::{error::{err, Error}, heapless_vec::HeaplessVec};
 
 pub struct AudioBus<'a, T> {
     pub data: &'a mut Vec<Vec<T>>,
@@ -28,26 +28,48 @@ pub struct IOConfigutaion {
 }
 
 impl IOConfigutaion {
-    pub fn matches<'a, T>(&self, inputs: &[AudioBus<'a, T>], outputs: &[AudioBus<'a, T>]) -> bool {
+    pub fn matches<'a, T>(
+        &self,
+        inputs: &[AudioBus<'a, T>],
+        outputs: &[AudioBus<'a, T>],
+    ) -> Result<(), Error> {
         if self.audio_inputs.len() != inputs.len() || self.audio_outputs.len() != outputs.len() {
-            return false;
+            return err(&format!(
+                "Input/output count mismatch: expected {} inputs and {} outputs, got {} inputs and {} outputs",
+                self.audio_inputs.len(),
+                self.audio_outputs.len(),
+                inputs.len(),
+                outputs.len()
+            ));
         }
 
         #[allow(clippy::needless_range_loop)]
         for i in 0..self.audio_inputs.len() {
-            if self.audio_inputs[i].channels != inputs[i].channels() {
-                return false;
+            let channels = inputs[i].channels();
+            let needed_channels = self.audio_inputs[i].channels;
+            if channels != needed_channels {
+                return err(&format!(
+                    "Input channel count mismatch: expected {}, got {}",
+                    needed_channels,
+                    channels
+                ));
             }
         }
 
         #[allow(clippy::needless_range_loop)]
         for i in 0..self.audio_outputs.len() {
-            if self.audio_outputs[i].channels != outputs[i].channels() {
-                return false;
+            let channels = outputs[i].channels();
+            let needed_channels = self.audio_outputs[i].channels;
+            if channels != needed_channels {
+                return err(&format!(
+                    "Output channel count mismatch: expected {}, got {}",
+                    needed_channels,
+                    channels
+                ));
             }
         }
 
-        true
+        Ok(())
     }
 }
 

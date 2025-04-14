@@ -71,8 +71,8 @@ impl PluginInstance {
         events: Vec<HostIssuedEvent>,
         process_details: &ProcessDetails,
     ) {
-        if !self.io_configuration.matches(inputs, outputs) {
-            panic!("Inputs and outputs do not match the plugin's IO configuration");
+        if let Err(e) = self.io_configuration.matches(inputs, outputs) {
+            panic!("Inputs and outputs do not match the plugin's IO configuration:\n{}", e);
         }
 
         self.resume();

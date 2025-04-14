@@ -90,6 +90,14 @@ impl<T: Copy, const N: usize> HeaplessVec<T, N> {
             index: 0,
         }
     }
+
+    pub fn last_mut(&mut self) -> Option<&mut T> {
+        if self.count == 0 {
+            return None;
+        }
+
+        Some(unsafe { &mut self.data[self.count - 1].value })
+    }
 }
 
 pub struct HeaplessVecIter<'a, T: Copy, const N: usize> {

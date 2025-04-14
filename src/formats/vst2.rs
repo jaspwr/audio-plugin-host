@@ -18,7 +18,8 @@ use std::sync::{atomic::AtomicBool, Arc};
 
 use ringbuf::traits::Producer;
 use ringbuf::HeapProd;
-use vst::api::HostLanguage;
+use vst::api::{HostLanguage, SpeakerArrangementType};
+use vst::channels::StereoChannel;
 use vst::host::Dispatch;
 use vst::plugin::{Plugin, PluginParameters};
 use vst::{
@@ -222,17 +223,21 @@ impl PluginInner for Vst2 {
 
         process_vst2_midi_events_list(&self.plugin_instance, events);
 
-        let mut input = &vec![];
-        let mut output = &mut vec![];
+        let mut input = vec![];
+        let mut output = vec![];
 
-        if !inputs.is_empty() {
-            input = inputs[0].data;
+        for input_bus in inputs.iter() {
+            for channel in input_bus.data.iter() {
+                input.push(channel);
+            }
         }
-        if !outputs.is_empty() {
-            output = &mut outputs[0].data;
+        for output_bus in outputs.iter_mut() {
+            for channel in output_bus.data.iter_mut() {
+                output.push(channel);
+            }
         }
 
-        let mut audio_buffer = self.host_buffer.bind(input, output);
+        let mut audio_buffer = self.host_buffer.bind(&input, &mut output);
 
         self.plugin_instance.process(&mut audio_buffer);
     }
@@ -301,23 +306,19 @@ impl PluginInner for Vst2 {
         let info = self.plugin_instance.get_info();
 
         let mut inputs = HeaplessVec::new();
-
-        if info.inputs > 0 {
-            let _ = inputs.push(AudioBusDescriptor {
-                channels: info.inputs as usize,
-            });
+        for i in 0..info.inputs {
+            let input_info = self.plugin_instance.get_input_info(i);
+            append_bus_info_from_arrangment(&mut inputs, input_info.arrangement_type);
         }
 
         let mut outputs = HeaplessVec::new();
-
-        if info.outputs > 0 {
-            let _ = outputs.push(AudioBusDescriptor {
-                channels: info.outputs as usize,
-            });
+        for i in 0..info.inputs {
+            let output_info = self.plugin_instance.get_output_info(i);
+            append_bus_info_from_arrangment(&mut outputs, output_info.arrangement_type);
         }
 
         let event_inputs_count = info.midi_inputs.min(1); // TODO: Look into supporting more channels
-        //
+
         self.plugin_instance.info = info;
 
         IOConfigutaion {
@@ -333,6 +334,30 @@ impl PluginInner for Vst2 {
 
     fn get_parameter_count(&self) -> usize {
         self.plugin_instance.info.parameters as usize
+    }
+}
+
+fn append_bus_info_from_arrangment(
+    buses: &mut HeaplessVec<AudioBusDescriptor, 16>,
+    arrangement: vst::channels::SpeakerArrangementType,
+) {
+    match arrangement {
+        vst::channels::SpeakerArrangementType::Empty => {}
+        vst::channels::SpeakerArrangementType::Mono => {
+            let _ = buses.push(AudioBusDescriptor { channels: 1 });
+        }
+        vst::channels::SpeakerArrangementType::Stereo(_, channel) => {
+            // Assume right will also be present and ignore it
+            if channel == StereoChannel::Left {
+                let _ = buses.push(AudioBusDescriptor { channels: 2 });
+            }
+        }
+        vst::channels::SpeakerArrangementType::Surround(config) => {
+            // TODO
+        }
+        vst::channels::SpeakerArrangementType::Custom => {
+            // TODO
+        }
     }
 }
 
@@ -450,7 +475,9 @@ impl vst::host::Host for Vst2Host {
             .iter()
             .position(|p| p.index == index)
         {
-            let param = editor_params_state.currently_editing.remove(currently_editing_index);
+            let param = editor_params_state
+                .currently_editing
+                .remove(currently_editing_index);
 
             let _ = self.plugin_issued_events_producer.borrow_mut().try_push(
                 PluginIssuedEvent::Parameter(crate::parameter::ParameterUpdate {
