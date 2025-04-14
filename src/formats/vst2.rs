@@ -445,12 +445,12 @@ impl vst::host::Host for Vst2Host {
     fn end_edit(&self, index: i32) {
         let mut editor_params_state = self.editor_params_state.lock().unwrap();
 
-        if let Some(index) = editor_params_state
+        if let Some(currently_editing_index) = editor_params_state
             .currently_editing
             .iter()
             .position(|p| p.index == index)
         {
-            let param = editor_params_state.currently_editing.remove(index);
+            let param = editor_params_state.currently_editing.remove(currently_editing_index);
 
             let _ = self.plugin_issued_events_producer.borrow_mut().try_push(
                 PluginIssuedEvent::Parameter(crate::parameter::ParameterUpdate {
