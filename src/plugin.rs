@@ -45,7 +45,7 @@ pub fn load<P: AsRef<Path>>(path: P, host: &Host) -> Result<PluginInstance, Erro
 
 pub struct PluginInstance {
     pub descriptor: PluginDescriptor,
-    /// `Box` to store a window object for convieneice. This isn't used by this
+    /// `Box` to store a window object for convenience. This isn't used by this
     /// crate at all you can use this however you want. Whatever you put in here
     /// will be dropped when the editor is closed.
     pub window: Box<dyn Any>,
