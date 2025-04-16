@@ -600,7 +600,8 @@ fn process_vst2_midi_events_list(
     let mut events_object = Vst2Events::<MAX_EVENTS>::new(num_events);
 
     if num_events > MAX_EVENTS {
-        todo!();
+        // TODO: Handle this case
+        return;
     }
 
     for (i, event) in events.iter().enumerate() {
