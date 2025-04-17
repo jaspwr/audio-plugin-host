@@ -19,6 +19,7 @@ pub struct Parameter {
 #[repr(C)]
 pub struct ParameterUpdate {
     pub parameter_id: i32,
+    pub parameter_index: i32,
     pub current_value: f32,
     /// Value at start of edit. For example, the value before the user started dragging a knob
     /// in the plugin editor. Not required to be set when sending events to the plugin; just
@@ -32,6 +33,7 @@ impl ParameterUpdate {
     pub fn new(id: i32, value: f32) -> Self {
         ParameterUpdate {
             parameter_id: id,
+            parameter_index: -1,
             current_value: value,
             initial_value: f32::NAN,
             end_edit: false,

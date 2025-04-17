@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <iostream>
+#include <unordered_map>
 #include <vector>
 
 using namespace Steinberg;
@@ -17,14 +18,26 @@ const char *alloc_string(const char *str) {
   return copy;
 }
 
-void send_param_change_event(const void *plugin_sent_events_producer,
-                             int32_t id, float value, float initial_value,
-                             bool end_edit = false) {
+void send_param_change_event(
+    const void *plugin_sent_events_producer, int32_t id, float value,
+    float initial_value,
+    const std::unordered_map<ParamID, int> *parameter_indicies,
+    bool end_edit = false) {
   PluginIssuedEvent event = {};
   event.tag = PluginIssuedEvent::Tag::Parameter;
   event.parameter = {};
   event.parameter._0 = {};
-  event.parameter._0.parameter_id = (int32_t)id,
+
+  int32_t param_index = -1;
+  if (parameter_indicies) {
+    auto it = parameter_indicies->find(id);
+    if (it != parameter_indicies->end()) {
+      param_index = (int32_t)it->second;
+    }
+  }
+
+  event.parameter._0.parameter_id = id,
+  event.parameter._0.parameter_index = param_index,
   event.parameter._0.current_value = value,
   event.parameter._0.end_edit = end_edit,
   event.parameter._0.initial_value = initial_value,
@@ -67,13 +80,16 @@ public:
   std::vector<ParameterEditState> *param_edits = nullptr;
   std::mutex *param_edits_mutex = nullptr;
   const void *plugin_sent_events_producer = nullptr;
+  const std::unordered_map<ParamID, int> *parameter_indicies = nullptr;
 
-  ComponentHandler(std::vector<ParameterEditState> *_param_edits,
-                   std::mutex *_param_edits_mutex,
-                   const void *_plugin_sent_events_producer) {
+  ComponentHandler(
+      std::vector<ParameterEditState> *_param_edits,
+      std::mutex *_param_edits_mutex, const void *_plugin_sent_events_producer,
+      const std::unordered_map<ParamID, int> *_parameter_indicies) {
     param_edits = _param_edits;
     param_edits_mutex = _param_edits_mutex;
     plugin_sent_events_producer = _plugin_sent_events_producer;
+    parameter_indicies = _parameter_indicies;
   }
 
   Steinberg::tresult beginEdit(Steinberg::Vst::ParamID id) override {
@@ -98,7 +114,7 @@ public:
       param.current_value = valueNormalized;
 
       send_param_change_event(plugin_sent_events_producer, id, valueNormalized,
-                              param.initial_value);
+                              param.initial_value, parameter_indicies);
 
       return Steinberg::kResultOk;
     }
@@ -112,7 +128,7 @@ public:
     param_edits->push_back(state);
 
     send_param_change_event(plugin_sent_events_producer, id, valueNormalized,
-                            valueNormalized);
+                            valueNormalized, parameter_indicies);
 
     return Steinberg::kResultOk;
   }
@@ -126,14 +142,16 @@ public:
         continue;
 
       send_param_change_event(plugin_sent_events_producer, param.id,
-                              param.current_value, param.initial_value, true);
+                              param.current_value, param.initial_value,
+                              parameter_indicies, true);
 
       param_edits->erase(std::next(param_edits->begin(), i));
 
       return Steinberg::kResultOk;
     }
 
-    send_param_change_event(plugin_sent_events_producer, id, NAN, NAN, true);
+    send_param_change_event(plugin_sent_events_producer, id, NAN, NAN,
+                            parameter_indicies, true);
 
     return Steinberg::kResultOk;
   }
@@ -226,8 +244,9 @@ bool PluginInstance::load_plugin_from_class(
 
   param_edits = {};
 
-  component_handler = new ComponentHandler(&param_edits, &param_edits_mutex,
-                                           plugin_sent_events_producer);
+  component_handler =
+      new ComponentHandler(&param_edits, &param_edits_mutex,
+                           plugin_sent_events_producer, &parameter_indicies);
   _editController->setComponentHandler((ComponentHandler *)component_handler);
 
   Vst::IConnectionPoint *iConnectionPointComponent = nullptr;
@@ -768,6 +787,8 @@ ParameterFFI get_parameter(const void *app, int32_t id) {
   ParameterInfo param_info = {};
   vst->_editController->getParameterInfo(id, param_info);
 
+  vst->parameter_indicies[param_info.id] = id;
+
   // TODO: Make real-time safe with stack buffers
 
   std::string name = {};
@@ -794,8 +815,8 @@ ParameterFFI get_parameter(const void *app, int32_t id) {
   }
 
   ParameterFFI param = {};
-  param.id = id;
-  param.index = param_info.id;
+  param.id = param_info.id;
+  param.index = id;
   param.value = (float)value;
   param.name = alloc_string(name.c_str());
   param.formatted_value = alloc_string(formatted_value_c_str.c_str());

@@ -443,6 +443,7 @@ impl vst::host::Host for Vst2Host {
                 .try_push(PluginIssuedEvent::Parameter(
                     crate::parameter::ParameterUpdate {
                         parameter_id: index,
+                        parameter_index: index,
                         current_value: value,
                         initial_value: initial_value.unwrap_or(f32::NAN),
                         end_edit: false,
@@ -521,6 +522,7 @@ impl vst::host::Host for Vst2Host {
             let _ = self.plugin_issued_events_producer.borrow_mut().try_push(
                 PluginIssuedEvent::Parameter(crate::parameter::ParameterUpdate {
                     parameter_id: index as i32,
+                    parameter_index: index,
                     current_value: param.current,
                     initial_value: param.initial,
                     end_edit: true,

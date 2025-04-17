@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mutex>
+#include <unordered_map>
 
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/module.h"
@@ -50,6 +51,8 @@ public:
   Dims createView(void *window_id);
 
   Steinberg::Vst::HostProcessData _processData = {};
+
+  std::unordered_map<Steinberg::Vst::ParamID, int> parameter_indicies = {};
 
   void _destroy(bool decrementRefCount);
 

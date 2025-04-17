@@ -80,6 +80,7 @@ struct MidiEvent {
 
 struct ParameterUpdate {
   int32_t parameter_id;
+  int32_t parameter_index;
   float current_value;
   /// Value at start of edit. For example, the value before the user started dragging a knob
   /// in the plugin editor. Not required to be set when sending events to the plugin; just

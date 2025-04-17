@@ -148,13 +148,13 @@ impl PluginInstance {
         self.inner.set_preset(id)
     }
 
-    pub fn get_parameter(&self, id: i32) -> Parameter {
-        self.inner.get_parameter(id)
+    pub fn get_parameter(&self, index: i32) -> Parameter {
+        self.inner.get_parameter(index)
     }
 
     pub fn get_all_parameters(&self) -> Vec<Parameter> {
         (0..self.inner.get_parameter_count())
-            .map(|i| self.inner.get_parameter_from_index(i as i32))
+            .map(|i| self.inner.get_parameter(i as i32))
             .filter(|p| !p.hidden)
             .collect()
     }
@@ -239,11 +239,7 @@ pub(crate) trait PluginInner {
     fn get_preset_name(&mut self, id: i32) -> Result<String, String>;
     fn set_preset(&mut self, id: i32) -> Result<(), String>;
 
-    fn get_parameter(&self, id: i32) -> Parameter;
-    /// Only override for formats where the id and index can be different
-    fn get_parameter_from_index(&self, index: i32) -> Parameter {
-        self.get_parameter(index)
-    }
+    fn get_parameter(&self, index: i32) -> Parameter;
 
     fn show_editor(&mut self, window_id: *mut std::ffi::c_void) -> Result<(usize, usize), Error>;
     fn hide_editor(&mut self);
