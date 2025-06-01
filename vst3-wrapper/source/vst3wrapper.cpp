@@ -629,6 +629,8 @@ void process(const void *app, const ProcessDetails *data, float ***input,
   auto audio_inputs = vst->_io_config.audio_inputs.count;
   auto audio_outputs = vst->_io_config.audio_outputs.count;
 
+  vst->_processData.numSamples = data->block_size;
+
   for (int i = 0; i < audio_inputs; i++) {
     vst->_processData.inputs->channelBuffers32 = input[i];
   }
