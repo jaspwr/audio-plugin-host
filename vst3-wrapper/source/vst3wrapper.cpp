@@ -718,17 +718,17 @@ void process(const void *app, const ProcessDetails *data, float ***input,
       if (is_note_on) {
         evt.type = Steinberg::Vst::Event::EventTypes::kNoteOnEvent;
         evt.noteOn.channel = 0;
-        evt.noteOn.pitch = events[i].event_type.midi._0.midi_data[0];
+        evt.noteOn.pitch = events[i].event_type.midi._0.midi_data[1];
         evt.noteOn.tuning = events[i].event_type.midi._0.detune;
-        evt.noteOn.velocity = events[i].event_type.midi._0.midi_data[0];
+        evt.noteOn.velocity = events[i].event_type.midi._0.midi_data[2];
         evt.noteOn.length = 0;
         evt.noteOn.noteId = -1;
       } else if (is_note_off) {
         evt.type = Steinberg::Vst::Event::EventTypes::kNoteOffEvent;
         evt.noteOff.channel = 0;
-        evt.noteOff.pitch = events[i].event_type.midi._0.midi_data[0];
+        evt.noteOff.pitch = events[i].event_type.midi._0.midi_data[1];
         evt.noteOff.tuning = events[i].event_type.midi._0.detune;
-        evt.noteOff.velocity = events[i].event_type.midi._0.midi_data[0];
+        evt.noteOff.velocity = events[i].event_type.midi._0.midi_data[2];
         evt.noteOff.noteId = -1;
       }
       eventList->addEvent(evt);
