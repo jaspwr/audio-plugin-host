@@ -1,3 +1,4 @@
+> ### This project is a work in progress and not intended for use in production yet.
 # audio-plugin-host
 High-level Rust hosting library for VST2/3 and CLAP. Largely based on [EasyVst](https://github.com/iffyloop/EasyVst) and [vst-rs](https://github.com/RustAudio/vst-rs).
 
