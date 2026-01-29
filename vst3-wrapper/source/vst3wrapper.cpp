@@ -269,7 +269,9 @@ Dims show_gui(const void *app, const void *window_id,
 void hide_gui(const void *app) {
   PluginInstance *vst = (PluginInstance *)app;
   if (vst->_view != nullptr) {
-    vst->_view->release();
+    vst->_view->removed();
+    vst->_view->setFrame(nullptr);
+    // vst->_view->release();
     vst->_view = nullptr;
   }
 }
