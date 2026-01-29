@@ -973,6 +973,7 @@ impl PluginInner for Clap {
             };
 
             let _ = gui.hide.unwrap()(self.plugin);
+            gui.destroy.unwrap()(self.plugin);
         }
     }
 
