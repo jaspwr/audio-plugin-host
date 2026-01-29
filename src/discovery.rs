@@ -64,17 +64,17 @@ pub fn is_vst2(path: &Path, check_contents: bool) -> bool {
         return true;
     // }
 
-    #[cfg(target_os = "macos")]
-    if path.is_dir() {
-        return true;
-    }
-
-    let data = std::fs::read(path).expect("Failed to read file");
-    match goblin::Object::parse(&data) {
-        Ok(goblin::Object::Elf(elf)) => elf.dynstrtab.to_vec().map(|t| t.contains(&"VSTPluginMain")).unwrap_or(true),
-        Ok(goblin::Object::PE(pe)) => pe.exports.iter().any(|e| e.name == Some("VSTPluginMain")),
-        _ => true, // Can't check so just return true
-    }
+    // #[cfg(target_os = "macos")]
+    // if path.is_dir() {
+    //     return true;
+    // }
+    //
+    // let data = std::fs::read(path).expect("Failed to read file");
+    // match goblin::Object::parse(&data) {
+    //     Ok(goblin::Object::Elf(elf)) => elf.dynstrtab.to_vec().map(|t| t.contains(&"VSTPluginMain")).unwrap_or(true),
+    //     Ok(goblin::Object::PE(pe)) => pe.exports.iter().any(|e| e.name == Some("VSTPluginMain")),
+    //     _ => true, // Can't check so just return true
+    // }
 }
 
 pub fn is_vst3(path: &Path) -> bool {

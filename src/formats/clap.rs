@@ -724,6 +724,7 @@ impl PluginInner for Clap {
 
             self.process.frames_count = process_details.block_size as u32;
             self.process.steady_time = -1;
+            self.process.transport = std::ptr::null();
 
             let mut input_pointers = HeaplessVec::<*mut f32, 16>::new();
             for input in inputs {
@@ -757,6 +758,9 @@ impl PluginInner for Clap {
 
             self.process.audio_inputs = &inputs as *const clap_audio_buffer;
             self.process.audio_outputs = &mut outputs as *mut clap_audio_buffer;
+
+            self.process.audio_inputs_count = 1;
+            self.process.audio_outputs_count = 1;
 
             self.in_events.clear();
 
