@@ -597,6 +597,7 @@ void process(const void *app, const ProcessDetails *data, float ***input,
 
             auto changes = vst->process_data.inputParameterChanges;
 
+        // First 4 bytes are processor data length
             int queue_index = 0;
             auto queue = changes->addParameterData(id, queue_index);
 

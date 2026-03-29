@@ -135,6 +135,9 @@ impl PluginInner for Vst3 {
     }
 
     fn set_preset_data(&mut self, data: Vec<u8>) -> Result<(), String> {
+        // Unpack processor and controller data
+        // First 4 bytes are processor data length
+
         unsafe {
             let mut proc_data_len = 0;
 
@@ -147,17 +150,12 @@ impl PluginInner for Vst3 {
             proc_data_len |= (data[2] as usize) << 8 * 2;
             proc_data_len |= (data[3] as usize) << 8 * 3;
 
-            println!("loading with proc data len {}", proc_data_len);
-
             if data.len() < proc_data_len {
                 return Err("Invalid data".to_string());
             }
 
             let processor_data = &data[4..(proc_data_len + 4)];
             let controller_data = &data[(proc_data_len + 4)..];
-
-            println!("proc {}", processor_data.len());
-            println!("cont {}", controller_data.len());
 
             vst3_wrapper_sys::set_data(
                 self.app,
@@ -175,6 +173,9 @@ impl PluginInner for Vst3 {
     }
 
     fn get_preset_data(&mut self) -> Result<Vec<u8>, String> {
+        // Pack processor and controller data
+        // First 4 bytes are processor data length
+
         unsafe {
             let mut len = 0;
             let mut stream = std::ptr::null();
@@ -218,11 +219,6 @@ impl PluginInner for Vst3 {
             data.push(((proc_data_len >> (8)) & 0xFF) as u8);
             data.push(((proc_data_len >> (8 * 2)) & 0xFF) as u8);
             data.push(((proc_data_len >> (8 * 3)) & 0xFF) as u8);
-
-            println!("saving with proc data len {}", proc_data_len);
-
-            println!("proc {}", processor_data.len());
-            println!("cont {}", controller_data.len());
 
             data.extend(processor_data);
             data.extend(controller_data);

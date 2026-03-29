@@ -64,7 +64,7 @@ Steinberg::tresult ComponentHandler::restartComponent(Steinberg::int32 flags) {
   event.tag = PluginIssuedEvent::Tag::IOChanged;
   send_event_to_host(&event, rust_side_vst3_instance_object);
 
-  return Steinberg::kResultOk;
+  return Steinberg::kNotImplemented;
 }
 
 Steinberg::tresult
