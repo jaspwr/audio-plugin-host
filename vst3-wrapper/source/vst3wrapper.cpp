@@ -464,13 +464,15 @@ void process(const void *app, const ProcessDetails *data, float ***input,
   state |= ctx->kTimeSigValid;
 
   vst->process_data.processContext->projectTimeMusic = data->player_time;
+  state |= ctx->kProjectTimeMusicValid;
 
   vst->process_data.processContext->projectTimeSamples =
       (data->player_time / (data->tempo / 60.)) * data->sample_rate;
 
-  // TODO
-  // vst->_processData.processContext->barPositionMusic = data.barPosBeats;
-  // state |= ctx->kBarPositionValid;
+  float beats_per_measure = (float)data->time_signature_numerator;
+  float bar_pos = (float)(long)((float)data->player_time / beats_per_measure) * beats_per_measure;
+  vst->process_data.processContext->barPositionMusic = bar_pos;
+  state |= ctx->kBarPositionValid;
 
   vst->process_data.processContext->cycleStartMusic = data->cycle_start;
   vst->process_data.processContext->cycleEndMusic = data->cycle_end;

@@ -1,4 +1,6 @@
 #include "componenthandler.h"
+#include <iostream>
+#include "pluginterfaces/vst/ivsteditcontroller.h"
 
 ComponentHandler::ComponentHandler() {}
 
@@ -57,14 +59,68 @@ Steinberg::tresult ComponentHandler::endEdit(Steinberg::Vst::ParamID id) {
   return Steinberg::kResultOk;
 }
 
+void log(const char *msg) {
+  // TODO
+}
+
+// [UI-thread & Connected] 
 Steinberg::tresult ComponentHandler::restartComponent(Steinberg::int32 flags) {
   // TODO
 
-  PluginIssuedEvent event = {};
-  event.tag = PluginIssuedEvent::Tag::IOChanged;
-  send_event_to_host(&event, rust_side_vst3_instance_object);
+  // https://steinbergmedia.github.io/vst3_doc/vstinterfaces/namespaceSteinberg_1_1Vst.html#a35f71d02b79cbd11942a149e651373e6
 
-  return Steinberg::kNotImplemented;
+
+  if ((flags & Steinberg::Vst::kReloadComponent) != 0) {
+    log("kReloadComponent");
+  }
+
+  if ((flags & Steinberg::Vst::kIoChanged) != 0) {
+    log("kIoChanged");
+    PluginIssuedEvent event = {};
+    event.tag = PluginIssuedEvent::Tag::IOChanged;
+    send_event_to_host(&event, rust_side_vst3_instance_object);
+  }
+
+  if ((flags & Steinberg::Vst::kParamValuesChanged) != 0) {
+    log("kParamValuesChanged");
+  }
+
+  if ((flags & Steinberg::Vst::kLatencyChanged) != 0) {
+    log("kLatencyChanged");
+  }
+
+  if ((flags & Steinberg::Vst::kParamTitlesChanged) != 0) {
+    log("kParamTitlesChanged");
+  }
+
+  if ((flags & Steinberg::Vst::kMidiCCAssignmentChanged) != 0) {
+    log("kMidiCCAssignmentChanged");
+  }
+
+  if ((flags & Steinberg::Vst::kNoteExpressionChanged) != 0) {
+    log("kNoteExpressionChanged");
+  }
+
+  if ((flags & Steinberg::Vst::kIoTitlesChanged) != 0) {
+    log("kIoTitlesChanged");
+  }
+
+  if ((flags & Steinberg::Vst::kPrefetchableSupportChanged) != 0) {
+    log("kPrefetchableSupportChanged");
+  }
+
+  if ((flags & Steinberg::Vst::kRoutingInfoChanged) != 0) {
+    log("kRoutingInfoChanged");
+  }
+
+  if ((flags & Steinberg::Vst::kKeyswitchChanged) != 0) {
+    log("kKeyswitchChanged");
+  }
+
+  // if ((flags & Steinberg::Vst::kParamIDMappingChanged) != 0) {
+  // }
+
+  return Steinberg::kResultOk;
 }
 
 Steinberg::tresult

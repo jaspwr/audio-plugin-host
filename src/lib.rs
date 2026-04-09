@@ -21,8 +21,8 @@ mod formats;
 pub type SampleRate = usize;
 pub type BlockSize = usize;
 pub type Tempo = f64;
-pub type PpqTime = f64;
 pub type Samples = usize;
+pub type PpqTime = f64;
 
 #[repr(C)]
 #[derive(Clone)]
