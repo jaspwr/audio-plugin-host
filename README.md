@@ -3,9 +3,9 @@
 High-level Rust hosting library for VST2/3 and CLAP. Largely based on [EasyVst](https://github.com/iffyloop/EasyVst) and [vst-rs](https://github.com/RustAudio/vst-rs).
 
 ## TODO
-- Change API to something like `let (controller, processor) = load_plugin(path)`;
+- Change API to something like `let (controller, processor) = load_plugin(path);`
 - Replace C++ wrapper with coupler/vst3-rs
-- Fix param ID/index ambiguity.
+- Fix param ID/index ambiguity
 - Finish VST2 implementation
 - Finish CLAP implementation
 
