@@ -89,15 +89,22 @@ impl PluginInner for Vst3 {
             });
         }
 
-        let mut channel_buffers = HeaplessVec::<HeaplessVec<*mut f32, 16>, 32>::new();
+        const MAX_CHANNELS: usize = 32;
+        const DOUBLE_MAX_CHANNELS: usize = MAX_CHANNELS * 2;
+        
+        let mut channel_buffers = HeaplessVec::<HeaplessVec<*mut f32, MAX_CHANNELS>, DOUBLE_MAX_CHANNELS>::new();
 
-        let mut input_ptrs = HeaplessVec::<*mut *mut f32, 16>::new();
-        let mut output_ptrs = HeaplessVec::<*mut *mut f32, 16>::new();
+        let mut input_ptrs = HeaplessVec::<*mut *mut f32, MAX_CHANNELS>::new();
+        let mut output_ptrs = HeaplessVec::<*mut *mut f32, MAX_CHANNELS>::new();
 
-        assert!(inputs.len() <= 16);
+        // assert!(inputs.len() <= MAX_CHANNELS);
         for bus in inputs.iter() {
-            let mut channels = HeaplessVec::<*mut f32, 16>::new();
-            assert!(bus.data.len() <= 16);
+            if input_ptrs.len() >= MAX_CHANNELS {
+                break;
+            }
+
+            let mut channels = HeaplessVec::<*mut f32, MAX_CHANNELS>::new();
+            assert!(bus.data.len() <= MAX_CHANNELS);
             for channel_idx in 0..bus.data.len() {
                 channels
                     .push(bus.data[channel_idx].as_ptr() as *mut f32)
@@ -109,10 +116,14 @@ impl PluginInner for Vst3 {
                 .unwrap();
         }
 
-        assert!(outputs.len() <= 16);
+        // assert!(outputs.len() <= MAX_CHANNELS);
         for bus in outputs.iter_mut() {
-            let mut channels = HeaplessVec::<*mut f32, 16>::new();
-            assert!(bus.data.len() <= 16);
+            if output_ptrs.len() >= MAX_CHANNELS {
+                break;
+            }
+
+            let mut channels = HeaplessVec::<*mut f32, MAX_CHANNELS>::new();
+            assert!(bus.data.len() <= MAX_CHANNELS);
             for channel_idx in 0..bus.data.len() {
                 channels.push(bus.data[channel_idx].as_mut_ptr()).unwrap();
             }

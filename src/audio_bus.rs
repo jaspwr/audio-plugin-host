@@ -26,8 +26,8 @@ impl<'a, T> AudioBus<'a, T> {
 #[repr(C)]
 /// Input and output configuration for the plugin.
 pub struct IOConfigutaion {
-    pub audio_inputs: HeaplessVec<AudioBusDescriptor, 16>,
-    pub audio_outputs: HeaplessVec<AudioBusDescriptor, 16>,
+    pub audio_inputs: HeaplessVec<AudioBusDescriptor, 128>,
+    pub audio_outputs: HeaplessVec<AudioBusDescriptor, 128>,
     pub event_inputs_count: i32,
 }
 

@@ -71,8 +71,8 @@ struct AudioBusDescriptor {
 
 /// Input and output configuration for the plugin.
 struct IOConfigutaion {
-  HeaplessVec<AudioBusDescriptor, 16> audio_inputs;
-  HeaplessVec<AudioBusDescriptor, 16> audio_outputs;
+  HeaplessVec<AudioBusDescriptor, 128> audio_inputs;
+  HeaplessVec<AudioBusDescriptor, 128> audio_outputs;
   int32_t event_inputs_count;
 };
 
